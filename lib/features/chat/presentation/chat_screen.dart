@@ -6,6 +6,7 @@ import '../../../core/theme/spacing_tokens.dart';
 import '../../../core/theme/typography_tokens.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/app_scaffold.dart';
+import '../../match_intelligence/presentation/match_intelligence_screen.dart';
 
 class ChatScreen extends StatelessWidget {
   const ChatScreen({
@@ -99,7 +100,15 @@ class ChatScreen extends StatelessWidget {
                 width: 120,
                 child: AppButton.primary(
                   label: 'Send',
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => MatchIntelligenceScreen(
+                          onTabSelected: onTabSelected,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ],

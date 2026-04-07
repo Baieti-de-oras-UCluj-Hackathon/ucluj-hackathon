@@ -6,6 +6,7 @@ import '../../../core/theme/spacing_tokens.dart';
 import '../../../core/theme/typography_tokens.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/app_scaffold.dart';
+import '../../match_intelligence/presentation/match_intelligence_screen.dart';
 
 class TeamScreen extends StatelessWidget {
   const TeamScreen({
@@ -109,16 +110,27 @@ class TeamScreen extends StatelessWidget {
                       .copyWith(color: ColorTokens.onAccent),
                 ),
                 const SizedBox(height: SpacingTokens.sm),
-                Container(
-                  color: ColorTokens.surface,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: SpacingTokens.md,
-                    vertical: SpacingTokens.sm,
-                  ),
-                  child: Text(
-                    'OPEN MATCH PLAN',
-                    style: TypographyTokens.sectionLabel.copyWith(
-                      color: ColorTokens.accent,
+                GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => MatchIntelligenceScreen(
+                          onTabSelected: onTabSelected,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    color: ColorTokens.surface,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: SpacingTokens.md,
+                      vertical: SpacingTokens.sm,
+                    ),
+                    child: Text(
+                      'OPEN MATCH PLAN',
+                      style: TypographyTokens.sectionLabel.copyWith(
+                        color: ColorTokens.accent,
+                      ),
                     ),
                   ),
                 ),

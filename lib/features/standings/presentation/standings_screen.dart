@@ -6,6 +6,7 @@ import '../../../core/theme/spacing_tokens.dart';
 import '../../../core/theme/typography_tokens.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/app_scaffold.dart';
+import '../../chat/presentation/chat_screen.dart';
 
 class StandingsScreen extends StatelessWidget {
   const StandingsScreen({
@@ -46,11 +47,20 @@ class StandingsScreen extends StatelessWidget {
           const SizedBox(height: SpacingTokens.md),
           const _TableRow(pos: '01', club: 'CFR CLUJ', points: '+22'),
           const _TableRow(pos: '02', club: 'FCSB', points: '+18'),
-          Container(
-            color: ColorTokens.surfaceHigh,
-            padding: const EdgeInsets.all(SpacingTokens.md),
-            child: const _TableRow(
-                pos: '03', club: 'UMBRARO', points: '+28', highlighted: true),
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ChatScreen(onTabSelected: onTabSelected),
+                ),
+              );
+            },
+            child: Container(
+              color: ColorTokens.surfaceHigh,
+              padding: const EdgeInsets.all(SpacingTokens.md),
+              child: const _TableRow(
+                  pos: '03', club: 'UMBRARO', points: '+28', highlighted: true),
+            ),
           ),
           const _TableRow(pos: '04', club: 'U CRAIOVA', points: '+12'),
           const _TableRow(pos: '05', club: 'RAPID BUCURESTI', points: '+8'),

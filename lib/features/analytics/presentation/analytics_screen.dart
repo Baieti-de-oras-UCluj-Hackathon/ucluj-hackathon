@@ -6,6 +6,7 @@ import '../../../core/theme/spacing_tokens.dart';
 import '../../../core/theme/typography_tokens.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/app_scaffold.dart';
+import '../../team/presentation/team_screen.dart';
 
 class AnalyticsScreen extends StatelessWidget {
   const AnalyticsScreen({
@@ -78,11 +79,22 @@ class AnalyticsScreen extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(vertical: SpacingTokens.sm),
                   width: double.infinity,
-                  alignment: Alignment.center,
-                  child: Text(
-                    'EXECUTE SIMULATION',
-                    style: TypographyTokens.sectionLabel
-                        .copyWith(color: ColorTokens.surface),
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              TeamScreen(onTabSelected: onTabSelected),
+                        ),
+                      );
+                    },
+                    child: Center(
+                      child: Text(
+                        'EXECUTE SIMULATION',
+                        style: TypographyTokens.sectionLabel
+                            .copyWith(color: ColorTokens.surface),
+                      ),
+                    ),
                   ),
                 ),
               ],

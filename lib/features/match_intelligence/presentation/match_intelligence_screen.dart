@@ -6,6 +6,8 @@ import '../../../core/theme/spacing_tokens.dart';
 import '../../../core/theme/typography_tokens.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/app_scaffold.dart';
+import '../../analytics/presentation/analytics_screen.dart';
+import '../../chat/presentation/chat_screen.dart';
 
 class MatchIntelligenceScreen extends StatelessWidget {
   const MatchIntelligenceScreen({
@@ -96,9 +98,27 @@ class MatchIntelligenceScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: SpacingTokens.lg),
-          AppButton.primary(label: 'Generate Detailed Brief', onPressed: () {}),
+          AppButton.primary(
+            label: 'Generate Detailed Brief',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ChatScreen(onTabSelected: onTabSelected),
+                ),
+              );
+            },
+          ),
           const SizedBox(height: SpacingTokens.sm),
-          AppButton.secondary(label: 'Full AI Simulation', onPressed: () {}),
+          AppButton.secondary(
+            label: 'Full AI Simulation',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => AnalyticsScreen(onTabSelected: onTabSelected),
+                ),
+              );
+            },
+          ),
         ],
       ),
     );
