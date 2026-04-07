@@ -62,6 +62,52 @@ class StandingsScreen extends StatelessWidget {
                 Text('WIN PROBABILITY', style: TypographyTokens.sectionLabel),
                 SizedBox(height: SpacingTokens.xs),
                 Text('88%', style: TypographyTokens.displayHero),
+                SizedBox(height: SpacingTokens.sm),
+                Text(
+                  'Based on current form and home advantage for the next 3 fixtures.',
+                  style: TypographyTokens.body,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 1),
+          const AppCard(
+            backgroundColor: ColorTokens.surfaceLow,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('GOAL DIFFERENTIAL EFFICIENCY',
+                    style: TypographyTokens.sectionLabel),
+                SizedBox(height: SpacingTokens.xs),
+                Text('+28', style: TypographyTokens.displayHero),
+                SizedBox(height: SpacingTokens.sm),
+                Text(
+                    'Highest efficiency in Liga 1. Average 2.4 goals per match.',
+                    style: TypographyTokens.body),
+              ],
+            ),
+          ),
+          const SizedBox(height: 1),
+          Container(
+            color: ColorTokens.surfaceHigh,
+            width: double.infinity,
+            padding: const EdgeInsets.all(SpacingTokens.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('POINTS TO TOP', style: TypographyTokens.sectionLabel),
+                const SizedBox(height: SpacingTokens.xs),
+                Text(
+                  '04',
+                  style: TypographyTokens.displayHero
+                      .copyWith(color: ColorTokens.negative),
+                ),
+                const SizedBox(height: SpacingTokens.sm),
+                Text(
+                  'TARGET ACHIEVABLE IN MATCHWEEK 26',
+                  style: TypographyTokens.sectionLabel
+                      .copyWith(color: ColorTokens.textPrimary),
+                ),
               ],
             ),
           ),

@@ -29,9 +29,16 @@ class ChatScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: SpacingTokens.sm),
-          Text(
-            'MANAGER\nCHAT',
-            style: TypographyTokens.displayHero.copyWith(fontSize: 58),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(width: 3, height: 96, color: ColorTokens.accent),
+              const SizedBox(width: SpacingTokens.md),
+              Text(
+                'MANAGER\nCHAT',
+                style: TypographyTokens.displayHero.copyWith(fontSize: 58),
+              ),
+            ],
           ),
           const SizedBox(height: SpacingTokens.xl),
           Text(

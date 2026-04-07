@@ -58,7 +58,15 @@ class AppScaffold extends StatelessWidget {
                       Container(
                         width: 32,
                         height: 32,
-                        color: ColorTokens.surfaceHigh,
+                        decoration: BoxDecoration(
+                          color: ColorTokens.surfaceHigh,
+                          border: Border.all(color: ColorTokens.divider),
+                        ),
+                        child: const Icon(
+                          Icons.person_outline,
+                          size: 16,
+                          color: ColorTokens.textPrimary,
+                        ),
                       ),
                 ],
               ),

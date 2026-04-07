@@ -97,6 +97,91 @@ class DashboardScreen extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: SpacingTokens.md),
+          Container(
+            color: ColorTokens.surfaceLow,
+            padding: const EdgeInsets.all(SpacingTokens.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('NEXT UP', style: TypographyTokens.sectionLabel),
+                const SizedBox(height: SpacingTokens.sm),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('UMBRARO',
+                        style: TypographyTokens.body
+                            .copyWith(fontWeight: FontWeight.w700)),
+                    Text('VS', style: TypographyTokens.headline),
+                  ],
+                ),
+                const SizedBox(height: SpacingTokens.xs),
+                Text('CFR CLUJ', style: TypographyTokens.body),
+              ],
+            ),
+          ),
+          const SizedBox(height: SpacingTokens.md),
+          const AppCard(
+            backgroundColor: ColorTokens.surface,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('UPCOMING', style: TypographyTokens.sectionLabel),
+                SizedBox(height: SpacingTokens.sm),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('SEPSI OSK', style: TypographyTokens.body),
+                    Text('VS', style: TypographyTokens.headline),
+                  ],
+                ),
+                SizedBox(height: SpacingTokens.xs),
+                Text('UMBRARO', style: TypographyTokens.body),
+              ],
+            ),
+          ),
+          const SizedBox(height: SpacingTokens.lg),
+          Container(
+            color: ColorTokens.surfaceLow,
+            padding: const EdgeInsets.all(SpacingTokens.md),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('SQUAD LOAD', style: TypographyTokens.sectionLabel),
+                      const SizedBox(height: SpacingTokens.xs),
+                      Text('OPTIMAL', style: TypographyTokens.headline),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('EFFICIENCY', style: TypographyTokens.sectionLabel),
+                      const SizedBox(height: SpacingTokens.xs),
+                      Text('8.4', style: TypographyTokens.headline),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: SpacingTokens.md),
+          const Row(
+            children: [
+              Expanded(
+                child: _DriverRow(label: '', value: '2ND', delta: 'THIS WEEK'),
+              ),
+              SizedBox(width: SpacingTokens.sm),
+              Expanded(
+                child:
+                    _DriverRow(label: '', value: '+22', delta: 'STABLE TREND'),
+              ),
+            ],
+          ),
         ],
       ),
     );

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/primitives/app_card.dart';
-import '../../../core/primitives/app_button.dart';
 import '../../../core/theme/color_tokens.dart';
 import '../../../core/theme/spacing_tokens.dart';
 import '../../../core/theme/typography_tokens.dart';
@@ -63,6 +62,35 @@ class TeamScreen extends StatelessWidget {
           ),
           const SizedBox(height: SpacingTokens.md),
           Container(
+            color: ColorTokens.surfaceLow,
+            width: double.infinity,
+            padding: const EdgeInsets.all(SpacingTokens.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('RECENT FORM', style: TypographyTokens.sectionLabel),
+                const SizedBox(height: SpacingTokens.sm),
+                Row(
+                  children: const [
+                    _FormBox('W'),
+                    SizedBox(width: SpacingTokens.xs),
+                    _FormBox('W'),
+                    SizedBox(width: SpacingTokens.xs),
+                    _FormBox('D'),
+                    SizedBox(width: SpacingTokens.xs),
+                    _FormBox('L'),
+                    SizedBox(width: SpacingTokens.xs),
+                    _FormBox('W'),
+                  ],
+                ),
+                const SizedBox(height: SpacingTokens.sm),
+                Text('NEXT OPPONENT  LIVERPOOL FC (H)',
+                    style: TypographyTokens.body),
+              ],
+            ),
+          ),
+          const SizedBox(height: SpacingTokens.md),
+          Container(
             color: ColorTokens.accent,
             padding: const EdgeInsets.all(SpacingTokens.md),
             child: Column(
@@ -81,11 +109,45 @@ class TeamScreen extends StatelessWidget {
                       .copyWith(color: ColorTokens.onAccent),
                 ),
                 const SizedBox(height: SpacingTokens.sm),
-                AppButton.secondary(label: 'Open Match Plan', onPressed: () {}),
+                Container(
+                  color: ColorTokens.surface,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: SpacingTokens.md,
+                    vertical: SpacingTokens.sm,
+                  ),
+                  child: Text(
+                    'OPEN MATCH PLAN',
+                    style: TypographyTokens.sectionLabel.copyWith(
+                      color: ColorTokens.accent,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _FormBox extends StatelessWidget {
+  const _FormBox(this.label);
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 28,
+      height: 24,
+      color: label == 'L' ? ColorTokens.negative : ColorTokens.accent,
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        style: TypographyTokens.sectionLabel.copyWith(
+          color: label == 'L' ? ColorTokens.surface : ColorTokens.surface,
+          letterSpacing: 0.6,
+        ),
       ),
     );
   }
