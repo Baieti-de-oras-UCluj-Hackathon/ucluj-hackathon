@@ -35,13 +35,22 @@ class AppScaffold extends StatelessWidget {
                 children: [
                   const Icon(Icons.menu, size: 20, color: ColorTokens.accent),
                   const SizedBox(width: SpacingTokens.sm),
-                  SizedBox(
-                    width: 140,
+                  const SizedBox(
+                    width: 115,
                     height: 32,
-                    child: Image.asset(
-                      'assets/branding/umbraro_wordmark.png',
-                      fit: BoxFit.contain,
+                    child: Align(
                       alignment: Alignment.centerLeft,
+                      child: Text(
+                        'umbraro',
+                        style: TextStyle(
+                          fontStyle: FontStyle.normal,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 24,
+                          height: 1 / 24,
+                          letterSpacing: -1.2,
+                          color: ColorTokens.accent,
+                        ),
+                      ),
                     ),
                   ),
                   const Spacer(),
