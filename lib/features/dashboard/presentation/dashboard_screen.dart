@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/primitives/app_button.dart';
 import '../../../core/primitives/app_card.dart';
 import '../../../core/theme/color_tokens.dart';
 import '../../../core/theme/spacing_tokens.dart';
 import '../../../core/theme/typography_tokens.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/app_scaffold.dart';
+import '../../match_intelligence/presentation/match_intelligence_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({
@@ -181,6 +183,24 @@ class DashboardScreen extends StatelessWidget {
                     _DriverRow(label: '', value: '+22', delta: 'STABLE TREND'),
               ),
             ],
+          ),
+          const SizedBox(height: SpacingTokens.md),
+          AppButton.primary(
+            label: 'Generate Detailed Brief',
+            onPressed: () {},
+          ),
+          const SizedBox(height: SpacingTokens.sm),
+          AppButton.secondary(
+            label: 'Full AI Simulation',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => MatchIntelligenceScreen(
+                    onTabSelected: onTabSelected,
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
