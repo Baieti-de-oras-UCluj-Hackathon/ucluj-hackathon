@@ -19,7 +19,6 @@ class AnalyticsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      title: 'Analytics',
       currentTab: AppTab.analytics,
       onTabSelected: onTabSelected,
       body: ListView(

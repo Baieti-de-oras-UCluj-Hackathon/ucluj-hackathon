@@ -18,7 +18,6 @@ class DashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      title: 'UmbraRo',
       currentTab: AppTab.dashboard,
       onTabSelected: onTabSelected,
       body: ListView(

@@ -18,7 +18,6 @@ class ChatScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      title: 'Manager Chat',
       currentTab: AppTab.chat,
       onTabSelected: onTabSelected,
       body: ListView(

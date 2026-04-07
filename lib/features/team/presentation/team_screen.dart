@@ -19,7 +19,6 @@ class TeamScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      title: 'Team',
       currentTab: AppTab.team,
       onTabSelected: onTabSelected,
       body: ListView(

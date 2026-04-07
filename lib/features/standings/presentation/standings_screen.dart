@@ -18,7 +18,6 @@ class StandingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      title: 'League Standings',
       currentTab: AppTab.standings,
       onTabSelected: onTabSelected,
       body: ListView(
