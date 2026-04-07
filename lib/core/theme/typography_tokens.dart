@@ -25,7 +25,7 @@ class TypographyTokens {
     fontSize: 11,
     height: 1.2,
     fontWeight: FontWeight.w700,
-    letterSpacing: 2.0,
+    letterSpacing: 1.8,
     color: ColorTokens.textMuted,
   );
 

@@ -74,7 +74,12 @@ class AppScaffold extends StatelessWidget {
             const Divider(height: 1, color: ColorTokens.divider),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(SpacingTokens.md),
+                padding: const EdgeInsets.fromLTRB(
+                  SpacingTokens.xl,
+                  SpacingTokens.xl,
+                  SpacingTokens.xl,
+                  SpacingTokens.md,
+                ),
                 child: body,
               ),
             ),
