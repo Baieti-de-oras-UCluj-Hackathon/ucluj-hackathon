@@ -9,13 +9,13 @@ class AppButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     super.key,
-  })  : isPrimary = true;
+  }) : isPrimary = true;
 
   const AppButton.secondary({
     required this.label,
     required this.onPressed,
     super.key,
-  })  : isPrimary = false;
+  }) : isPrimary = false;
 
   final String label;
   final VoidCallback onPressed;
