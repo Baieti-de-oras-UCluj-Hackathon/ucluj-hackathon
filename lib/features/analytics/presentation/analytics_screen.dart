@@ -35,7 +35,7 @@ class AnalyticsScreen extends StatelessWidget {
         children: [
           Container(
             width: double.infinity,
-            color: Colors.black,
+            color: ColorTokens.surface,
             padding: const EdgeInsets.all(SpacingTokens.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
