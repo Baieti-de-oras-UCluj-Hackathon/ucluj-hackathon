@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     model_bundle_path: str = "ml/umbraro_catboost_bundle.joblib"
     tracked_team: str = "UMBRARO"
     cors_origins: str = "http://localhost:3000,http://localhost:8080"
+    database_url: str = "sqlite+aiosqlite:///./umbraro.db"
+    jwt_secret: str = "CHANGE-ME-IN-PRODUCTION"
+    jwt_access_minutes: int = 15
+    jwt_refresh_days: int = 7
 
     @property
     def cors_origin_list(self) -> list[str]:
