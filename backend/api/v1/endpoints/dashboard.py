@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, Query
 from app.config import settings
 from core.models import DashboardResponse, DriverItem, FixtureDetail, StandingsRow
 from core.dependencies import get_model_service, get_feature_service, get_stadium_map
+from core.security import get_current_user
 from services.model_service import ModelService
 from services.feature_service import FeatureService
 from services.fixture_service import FixtureService
@@ -21,6 +22,7 @@ def _get_fixture_service(
 @router.get("/dashboard", response_model=DashboardResponse)
 def dashboard(
     team: str = Query(default=None),
+    _user=Depends(get_current_user),
     model_svc: ModelService = Depends(get_model_service),
     feature_svc: FeatureService = Depends(get_feature_service),
     fixture_svc: FixtureService = Depends(_get_fixture_service),

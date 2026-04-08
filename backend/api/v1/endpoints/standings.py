@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query
 
 from core.models import StandingsRow
 from core.dependencies import get_feature_service, get_stadium_map
+from core.security import get_current_user
 from services.fixture_service import FixtureService
 from services.feature_service import FeatureService
 
@@ -18,6 +19,7 @@ def _get_fixture_service(
 @router.get("/standings", response_model=list[StandingsRow])
 def standings(
     season: str | None = Query(None),
+    _user=Depends(get_current_user),
     svc: FixtureService = Depends(_get_fixture_service),
 ):
     return svc.standings(season=season)

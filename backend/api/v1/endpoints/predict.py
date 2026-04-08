@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 from core.models import FixtureRequest, PredictionResponse
 from core.dependencies import get_model_service, get_feature_service
 from core.exceptions import TeamNotFoundError
+from core.security import get_current_user
 from services.model_service import ModelService
 from services.feature_service import FeatureService
 
@@ -12,6 +13,7 @@ router = APIRouter()
 @router.post("/predict", response_model=PredictionResponse)
 def predict(
     body: FixtureRequest,
+    _user=Depends(get_current_user),
     model_svc: ModelService = Depends(get_model_service),
     feature_svc: FeatureService = Depends(get_feature_service),
 ):

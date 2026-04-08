@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from core.models import FixtureDetail
 from core.dependencies import get_feature_service, get_stadium_map
+from core.security import get_current_user
 from services.fixture_service import FixtureService
 from services.feature_service import FeatureService
 
@@ -20,6 +21,7 @@ def list_fixtures(
     team: str | None = Query(None),
     season: str | None = Query(None),
     limit: int = Query(20, ge=1, le=100),
+    _user=Depends(get_current_user),
     svc: FixtureService = Depends(_get_fixture_service),
 ):
     return svc.list_fixtures(team=team, season=season, limit=limit)
@@ -28,6 +30,7 @@ def list_fixtures(
 @router.get("/fixtures/{match_id}", response_model=FixtureDetail)
 def fixture_detail(
     match_id: str,
+    _user=Depends(get_current_user),
     svc: FixtureService = Depends(_get_fixture_service),
 ):
     result = svc.fixture_detail(match_id)

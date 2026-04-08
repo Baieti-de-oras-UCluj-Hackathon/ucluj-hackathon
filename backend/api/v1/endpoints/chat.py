@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 
 from core.models import ChatRequest, ChatResponse
 from core.dependencies import get_model_service, get_feature_service
+from core.security import get_current_user
 from services.model_service import ModelService
 from services.feature_service import FeatureService
 from services.chat_service import ChatService
@@ -12,6 +13,7 @@ router = APIRouter()
 @router.post("/chat", response_model=ChatResponse)
 def chat(
     body: ChatRequest,
+    _user=Depends(get_current_user),
     model_svc: ModelService = Depends(get_model_service),
     feature_svc: FeatureService = Depends(get_feature_service),
 ):
