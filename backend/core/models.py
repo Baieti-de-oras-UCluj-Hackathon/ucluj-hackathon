@@ -91,3 +91,32 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     context: dict | None = None
+
+
+# --- Auth schemas ---
+
+class RegisterRequest(BaseModel):
+    email: str = Field(..., min_length=3, description="User email")
+    password: str = Field(..., min_length=8, description="Password (min 8 chars)")
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    role: str
+    is_active: bool

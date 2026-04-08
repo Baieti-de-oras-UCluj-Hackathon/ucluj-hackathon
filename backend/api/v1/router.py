@@ -1,9 +1,10 @@
 from fastapi import APIRouter
 
-from api.v1.endpoints import health, predict, optimize, explain, dashboard, fixtures, standings, chat
+from api.v1.endpoints import auth, health, predict, optimize, explain, dashboard, fixtures, standings, chat
 
 v1_router = APIRouter()
 
+v1_router.include_router(auth.router)
 v1_router.include_router(health.router, tags=["health"])
 v1_router.include_router(predict.router, tags=["predict"])
 v1_router.include_router(optimize.router, tags=["optimize"])
