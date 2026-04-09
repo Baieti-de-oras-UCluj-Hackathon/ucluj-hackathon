@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
-from clients.sportradar_client import SportradarClient
+from app.config import settings
+from clients.sportradar_client import SportradarClient, SportradarError
 from sportradar.services.competition_sync import CompetitionSyncService
 from sportradar.services.coverage_validation import CoverageValidationService
 from sportradar.services.fixture_sync import FixtureSyncService
@@ -14,15 +15,29 @@ router = APIRouter(prefix="/admin/sync", tags=["admin-sync"])
 
 
 def _client() -> SportradarClient:
+    if not settings.sportradar_api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="SPORTRADAR_API_KEY is not configured. Add it to backend/.env",
+        )
     return SportradarClient()
+
+
+def _handle_sr_error(exc: SportradarError) -> HTTPException:
+    if exc.status == 403:
+        return HTTPException(403, f"Sportradar access denied: {exc.detail}. Check your API key.")
+    return HTTPException(502, f"Sportradar error ({exc.status}): {exc.detail}")
 
 
 # ── COMPETITION + SEASON DISCOVERY ────────────────────────────────────────────
 
 @router.post("/competitions")
 async def sync_competitions():
-    svc = CompetitionSyncService(_client())
-    comp = await svc.discover_superliga()
+    try:
+        svc = CompetitionSyncService(_client())
+        comp = await svc.discover_superliga()
+    except SportradarError as exc:
+        raise _handle_sr_error(exc)
     if not comp:
         raise HTTPException(404, "Romania Superliga not found via discovery in Sportradar competitions list")
     return {
@@ -38,11 +53,14 @@ async def sync_competitions():
 
 @router.post("/seasons")
 async def sync_seasons():
-    svc = CompetitionSyncService(_client())
-    comp = await svc.discover_superliga()
-    if not comp:
-        raise HTTPException(404, "Run /competitions first — could not discover Superliga")
-    seasons = await svc.list_seasons(comp.id)
+    try:
+        svc = CompetitionSyncService(_client())
+        comp = await svc.discover_superliga()
+        if not comp:
+            raise HTTPException(404, "Run /competitions first — could not discover Superliga")
+        seasons = await svc.list_seasons(comp.id)
+    except SportradarError as exc:
+        raise _handle_sr_error(exc)
     return {
         "competition_id": comp.id,
         "competition_name": comp.name,
@@ -53,8 +71,11 @@ async def sync_seasons():
 
 @router.post("/seasons/{season_id}/coverage")
 async def sync_season_coverage(season_id: str):
-    svc = CompetitionSyncService(_client())
-    cov = await svc.season_coverage(season_id)
+    try:
+        svc = CompetitionSyncService(_client())
+        cov = await svc.season_coverage(season_id)
+    except SportradarError as exc:
+        raise _handle_sr_error(exc)
     if not cov:
         raise HTTPException(404, f"Coverage info not available for {season_id}")
     return {"coverage": cov.model_dump()}
@@ -167,8 +188,11 @@ async def sync_season_match_details(
 
 @router.post("/seasons/{season_id}/validate")
 async def validate_season_coverage(season_id: str):
-    svc = CoverageValidationService(_client())
-    report = await svc.validate_season(season_id)
+    try:
+        svc = CoverageValidationService(_client())
+        report = await svc.validate_season(season_id)
+    except SportradarError as exc:
+        raise _handle_sr_error(exc)
     return {"report": report.model_dump()}
 
 
