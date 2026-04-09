@@ -10,6 +10,7 @@ async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit
 
 async def init_db():
     from db.models import Base
+    import sportradar.db_models  # noqa: F401 — registers sr_* tables with Base.metadata
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         result = await conn.execute(text("PRAGMA table_info(users)"))
