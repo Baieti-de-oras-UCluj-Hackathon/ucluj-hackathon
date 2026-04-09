@@ -123,3 +123,20 @@ class SportradarClient:
     async def sport_event_lineups(self, event_id: str) -> dict | None:
         eid = event_id.replace(":", "%3A")
         return await self.get(f"sport_events/{eid}/lineups.json")
+
+    async def competitor_schedules(self, competitor_id: str) -> dict | None:
+        cid = competitor_id.replace(":", "%3A")
+        return await self.get(f"competitors/{cid}/schedules.json")
+
+    async def season_lineups(self, season_id: str, offset: int = 0, limit: int = 200) -> dict | None:
+        sid = season_id.replace(":", "%3A")
+        return await self.get(f"seasons/{sid}/lineups.json", params={"offset": offset, "limit": limit})
+
+    async def competitor_vs_competitor(self, comp1: str, comp2: str) -> dict | None:
+        c1 = comp1.replace(":", "%3A")
+        c2 = comp2.replace(":", "%3A")
+        return await self.get(f"competitors/{c1}/vs/{c2}/summaries.json")
+
+    async def season_leaders(self, season_id: str) -> dict | None:
+        sid = season_id.replace(":", "%3A")
+        return await self.get(f"seasons/{sid}/leaders.json")

@@ -256,3 +256,100 @@ class NormalizedStandingsRow(BaseModel):
     goal_diff: int | None = None
     points: int | None = None
     form: str = ""
+
+
+# =============================================================================
+# COMPETITOR PROFILE + SQUAD
+# =============================================================================
+
+class NormalizedPlayer(BaseModel):
+    sr_id: str
+    name: str
+    type: str = ""
+    nationality: str = ""
+    date_of_birth: str = ""
+    height: int | None = None
+    weight: int | None = None
+    jersey_number: int | None = None
+
+
+class NormalizedCompetitorProfile(BaseModel):
+    sr_id: str
+    name: str
+    short_name: str = ""
+    abbreviation: str = ""
+    country: str = ""
+    country_code: str = ""
+    venue: SRVenue | None = None
+    manager: SRManager | None = None
+    jerseys: list[SRJersey] = Field(default_factory=list)
+    players: list[NormalizedPlayer] = Field(default_factory=list)
+
+
+# =============================================================================
+# MATCH DETAIL (SUMMARY + LINEUPS)
+# =============================================================================
+
+class NormalizedMatchStats(BaseModel):
+    fixture_id: str
+    team_id: str
+    team_name: str = ""
+    ball_possession: int | None = None
+    shots_total: int | None = None
+    shots_on_target: int | None = None
+    corner_kicks: int | None = None
+    fouls: int | None = None
+    yellow_cards: int | None = None
+    red_cards: int | None = None
+    offsides: int | None = None
+    free_kicks: int | None = None
+    goal_kicks: int | None = None
+    throw_ins: int | None = None
+
+
+class NormalizedLineupPlayer(BaseModel):
+    player_id: str = ""
+    name: str = ""
+    jersey_number: int | None = None
+    position: str = ""
+    starter: bool = True
+    order: int | None = None
+
+
+class NormalizedLineup(BaseModel):
+    fixture_id: str
+    team_id: str
+    team_name: str = ""
+    formation: str = ""
+    players: list[NormalizedLineupPlayer] = Field(default_factory=list)
+
+
+class NormalizedMatchDetail(BaseModel):
+    fixture_id: str
+    status: str = ""
+    home_score: int | None = None
+    away_score: int | None = None
+    stats: list[NormalizedMatchStats] = Field(default_factory=list)
+    lineups: list[NormalizedLineup] = Field(default_factory=list)
+
+
+# =============================================================================
+# COVERAGE VALIDATION REPORT
+# =============================================================================
+
+class FeedProbeResult(BaseModel):
+    feed_name: str
+    endpoint: str
+    available: bool
+    status_code: int | None = None
+    record_count: int | None = None
+    error: str = ""
+
+
+class CoverageReport(BaseModel):
+    season_id: str
+    season_name: str = ""
+    competition_id: str = ""
+    coverage_info: SRSeasonCoverage | None = None
+    feed_probes: list[FeedProbeResult] = Field(default_factory=list)
+    summary: dict[str, bool] = Field(default_factory=dict)
