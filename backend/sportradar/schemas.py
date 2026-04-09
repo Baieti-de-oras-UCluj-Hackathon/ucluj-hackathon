@@ -246,6 +246,8 @@ class NormalizedTeam(BaseModel):
 class NormalizedStandingsRow(BaseModel):
     team_id: str
     team_name: str
+    group_name: str = "Superliga"
+    group_id: str = ""
     rank: int | None = None
     played: int | None = None
     wins: int | None = None

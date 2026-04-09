@@ -17,3 +17,9 @@ async def init_db():
         columns = {row[1] for row in result.fetchall()}
         if "team_name" not in columns:
             await conn.execute(text("ALTER TABLE users ADD COLUMN team_name VARCHAR(120)"))
+
+        tables = {r[0] for r in (await conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))).fetchall()}
+        if "sr_standings" in tables:
+            sr_cols = {r[1] for r in (await conn.execute(text("PRAGMA table_info(sr_standings)"))).fetchall()}
+            if "group_name" not in sr_cols:
+                await conn.execute(text("ALTER TABLE sr_standings ADD COLUMN group_name VARCHAR(60) DEFAULT 'Superliga'"))

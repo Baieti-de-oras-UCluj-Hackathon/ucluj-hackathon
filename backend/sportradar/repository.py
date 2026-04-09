@@ -214,27 +214,36 @@ async def upsert_fixtures(session: AsyncSession, fixtures: list[NormalizedFixtur
 
 # ── STANDINGS ────────────────────────────────────────────────────────────────
 
-async def upsert_standings(session: AsyncSession, season_id: str, rows: list[NormalizedStandingsRow]):
+async def upsert_all_standings(
+    session: AsyncSession,
+    season_id: str,
+    groups: dict[str, list[NormalizedStandingsRow]],
+):
     await session.execute(delete(SrStanding).where(SrStanding.season_id == season_id))
     now = datetime.now(timezone.utc)
-    for r in rows:
-        session.add(SrStanding(
-            season_id=season_id,
-            team_id=r.team_id,
-            team_name=r.team_name,
-            rank=r.rank,
-            played=r.played,
-            wins=r.wins,
-            draws=r.draws,
-            losses=r.losses,
-            goals_for=r.goals_for,
-            goals_against=r.goals_against,
-            goal_diff=r.goal_diff,
-            points=r.points,
-            form=r.form,
-            synced_at=now,
-        ))
-    await log_sync(session, "standings", season_id, "replace", len(rows))
+    total = 0
+    for rows in groups.values():
+        for r in rows:
+            session.add(SrStanding(
+                season_id=season_id,
+                group_name=r.group_name,
+                group_id=r.group_id,
+                team_id=r.team_id,
+                team_name=r.team_name,
+                rank=r.rank,
+                played=r.played,
+                wins=r.wins,
+                draws=r.draws,
+                losses=r.losses,
+                goals_for=r.goals_for,
+                goals_against=r.goals_against,
+                goal_diff=r.goal_diff,
+                points=r.points,
+                form=r.form,
+                synced_at=now,
+            ))
+            total += 1
+    await log_sync(session, "standings", season_id, "replace", total)
 
 
 # ── MATCH STATS ──────────────────────────────────────────────────────────────

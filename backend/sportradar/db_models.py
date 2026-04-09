@@ -81,6 +81,8 @@ class SrStanding(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     season_id: Mapped[str] = mapped_column(String(60), default="", index=True)
+    group_name: Mapped[str] = mapped_column(String(60), default="Superliga")
+    group_id: Mapped[str] = mapped_column(String(60), default="")
     team_id: Mapped[str] = mapped_column(String(60), default="")
     team_name: Mapped[str] = mapped_column(String(120), default="")
     rank: Mapped[int | None] = mapped_column(Integer, nullable=True)

@@ -141,12 +141,17 @@ async def sync_season_fixtures(season_id: str, db: AsyncSession = Depends(_db)):
 async def sync_season_standings(season_id: str, db: AsyncSession = Depends(_db)):
     try:
         svc = StandingsSyncService(_client())
-        rows = await svc.sync_standings(season_id)
+        all_groups = await svc.sync_all_standings(season_id)
     except SportradarError as exc:
         raise _http_err(exc)
-    await repo.upsert_standings(db, season_id, rows)
+    await repo.upsert_all_standings(db, season_id, all_groups)
     await db.commit()
-    return {"count": len(rows), "persisted": True}
+    total = sum(len(rows) for rows in all_groups.values())
+    return {
+        "groups": list(all_groups.keys()),
+        "total_rows": total,
+        "persisted": True,
+    }
 
 
 @router.post("/seasons/{season_id}/match-details")
@@ -277,21 +282,42 @@ async def read_fixtures(
 @router.get("/data/standings")
 async def read_standings(
     season_id: str = Query(...),
+    phase: str = Query(default="regular", description="regular | groups | all"),
     db: AsyncSession = Depends(_db),
 ):
-    result = await db.execute(
-        select(SrStanding).where(SrStanding.season_id == season_id).order_by(SrStanding.rank)
-    )
+    q = select(SrStanding).where(SrStanding.season_id == season_id)
+
+    if phase == "regular":
+        q = q.where(SrStanding.group_name == "Superliga")
+    elif phase == "groups":
+        q = q.where(SrStanding.group_name.in_(["Championship Round", "Relegation Round"]))
+
+    q = q.order_by(SrStanding.group_name, SrStanding.rank)
+    result = await db.execute(q)
     rows = result.scalars().all()
+
+    def _row(r):
+        return {
+            "rank": r.rank, "team": r.team_name, "team_id": r.team_id,
+            "group": r.group_name, "played": r.played,
+            "w": r.wins, "d": r.draws, "l": r.losses,
+            "gf": r.goals_for, "ga": r.goals_against, "gd": r.goal_diff,
+            "pts": r.points, "form": r.form,
+        }
+
+    if phase == "groups":
+        championship = [_row(r) for r in rows if r.group_name == "Championship Round"]
+        relegation = [_row(r) for r in rows if r.group_name == "Relegation Round"]
+        return {
+            "phase": "groups",
+            "championship_round": {"name": "PLAYOFF", "count": len(championship), "standings": championship},
+            "relegation_round": {"name": "PLAYOUT", "count": len(relegation), "standings": relegation},
+        }
+
     return {
+        "phase": phase,
         "count": len(rows),
-        "standings": [
-            {"rank": r.rank, "team": r.team_name, "played": r.played,
-             "w": r.wins, "d": r.draws, "l": r.losses,
-             "gf": r.goals_for, "ga": r.goals_against, "gd": r.goal_diff,
-             "pts": r.points, "form": r.form}
-            for r in rows
-        ],
+        "standings": [_row(r) for r in rows],
     }
 
 
