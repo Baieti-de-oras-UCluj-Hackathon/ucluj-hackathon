@@ -109,10 +109,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             color: ColorTokens.surfaceHigh,
             border: Border.all(color: ColorTokens.accent, width: 2),
           ),
-          child: const Icon(
-            Icons.person,
-            size: 40,
-            color: ColorTokens.textMuted,
+          padding: const EdgeInsets.all(SpacingTokens.xs),
+          child: Image.asset(
+            'assets/branding/logo_icon.png',
+            fit: BoxFit.contain,
           ),
         ),
         const SizedBox(height: SpacingTokens.md),

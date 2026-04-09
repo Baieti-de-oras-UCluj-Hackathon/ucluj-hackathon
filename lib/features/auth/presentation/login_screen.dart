@@ -54,17 +54,16 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'umbraro',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 36,
-                      letterSpacing: -1.5,
-                      color: ColorTokens.accent,
+                  Center(
+                    child: SizedBox(
+                      height: 120,
+                      child: Image.asset(
+                        'assets/branding/logo_full.png',
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: SpacingTokens.xs),
+                  const SizedBox(height: SpacingTokens.md),
                   Text(
                     'TACTICAL INTELLIGENCE PLATFORM',
                     textAlign: TextAlign.center,
