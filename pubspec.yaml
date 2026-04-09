@@ -22,3 +22,4 @@ flutter:
   assets:
     - assets/branding/logo_icon.png
     - assets/branding/logo_full.png
+    - assets/teams/
