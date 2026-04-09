@@ -1,0 +1,84 @@
+import 'api_client.dart';
+
+class AuthUser {
+  AuthUser({
+    required this.id,
+    required this.email,
+    required this.role,
+    required this.teamName,
+    required this.isActive,
+  });
+
+  factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(
+        id: json['id'] as String,
+        email: json['email'] as String,
+        role: json['role'] as String,
+        teamName: json['team_name'] as String?,
+        isActive: json['is_active'] as bool,
+      );
+
+  final String id;
+  final String email;
+  final String role;
+  final String? teamName;
+  final bool isActive;
+}
+
+class AuthService {
+  AuthService(this._api);
+
+  final ApiClient _api;
+
+  Future<List<String>> fetchTeams() async {
+    final list = await _api.getList('/auth/teams');
+    return list.cast<String>();
+  }
+
+  Future<AuthUser> register({
+    required String email,
+    required String password,
+    required String teamName,
+  }) async {
+    final data = await _api.post('/auth/register', body: {
+      'email': email,
+      'password': password,
+      'team_name': teamName,
+    });
+    return AuthUser.fromJson(data);
+  }
+
+  Future<void> login({
+    required String email,
+    required String password,
+  }) async {
+    final data = await _api.post('/auth/login', body: {
+      'email': email,
+      'password': password,
+    });
+    _api.setTokens(
+      access: data['access_token'] as String,
+      refresh: data['refresh_token'] as String,
+    );
+  }
+
+  Future<void> refresh() async {
+    final rt = _api.refreshToken;
+    if (rt == null) throw ApiException(401, 'No refresh token');
+    final data = await _api.post('/auth/refresh', body: {
+      'refresh_token': rt,
+    });
+    _api.setTokens(
+      access: data['access_token'] as String,
+      refresh: data['refresh_token'] as String,
+    );
+  }
+
+  Future<AuthUser> me() async {
+    final data = await _api.get('/auth/me');
+    return AuthUser.fromJson(data);
+  }
+
+  void logout() {
+    _api.clearTokens();
+  }
+}
