@@ -6,9 +6,67 @@ import '../../../core/theme/color_tokens.dart';
 import '../../../core/theme/spacing_tokens.dart';
 import '../../../core/theme/typography_tokens.dart';
 
+// =============================================================================
+// DEMO DATA — isolate here, swap for real API later
+// =============================================================================
+
+class _Demo {
+  const _Demo._();
+  static const String name = 'Mihai Ciorăscu';
+  static const String role = 'TACTICAL ANALYST';
+  static const String country = 'Romania';
+  static const String memberSince = 'Apr 2026';
+  static const String lastActive = 'Today';
+  static const String accessLevel = 'Pro';
+
+  static const String briefsGenerated = '18';
+  static const String simulationsRun = '42';
+  static const String savedBlueprints = '7';
+  static const String reportsExported = '5';
+
+  static const String tacticalStyle = 'Structured Pressure';
+  static const String formationPref = '4-2-3-1';
+  static const String league = 'Romanian Superliga';
+  static const String season = '2024–2025';
+  static const String lastAnalyzed = 'vs CFR Cluj';
+  static const String exportFormat = 'PDF';
+  static const String language = 'English';
+
+  static const String plan = 'Pro — Thesis Build';
+  static const String security = 'Standard JWT Access';
+  static const String notifications = 'Enabled';
+
+  static const List<_ActivityData> activities = [
+    _ActivityData('Generated tactical brief', 'FCSB vs CFR Cluj', '2h ago'),
+    _ActivityData('Ran Monte Carlo simulation', 'FCSB vs Rapid București', '1d ago'),
+    _ActivityData('Exported match report', 'FCSB vs Universitatea Craiova', '3d ago'),
+    _ActivityData('Saved tactical blueprint', 'Wide overload plan', '5d ago'),
+    _ActivityData('Analyzed fixture probabilities', 'Round 28 — full batch', '1w ago'),
+  ];
+
+  static const List<_SavedData> savedBriefs = [
+    _SavedData('vs CFR Cluj — Match Brief', 'Mar 28, 2026'),
+    _SavedData('vs Rapid — Tactical Blueprint', 'Mar 21, 2026'),
+    _SavedData('vs U Craiova — Key Drivers Report', 'Mar 14, 2026'),
+  ];
+}
+
+class _ActivityData {
+  const _ActivityData(this.action, this.detail, this.time);
+  final String action, detail, time;
+}
+
+class _SavedData {
+  const _SavedData(this.title, this.date);
+  final String title, date;
+}
+
+// =============================================================================
+// PROFILE SCREEN
+// =============================================================================
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({required this.authState, super.key});
-
   final AuthState authState;
 
   @override
@@ -20,6 +78,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   static const _tabs = ['OVERVIEW', 'ACTIVITY', 'ACCOUNT'];
 
   AuthUser? get _user => widget.authState.user;
+  String get _team => _user?.teamName ?? 'No Team';
+  String get _email => _user?.email ?? '—';
+  String get _userRole => _user?.role.toUpperCase() ?? 'COACH';
 
   @override
   Widget build(BuildContext context) {
@@ -28,20 +89,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(context),
+            _ProfileHeader(onBack: () => Navigator.of(context).pop()),
             const Divider(height: 1, color: ColorTokens.divider),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(
-                  SpacingTokens.xl,
-                  SpacingTokens.xl,
-                  SpacingTokens.xl,
-                  SpacingTokens.xxl,
+                  SpacingTokens.xl, SpacingTokens.xl,
+                  SpacingTokens.xl, 40,
                 ),
                 children: [
-                  _buildProfileHero(),
+                  _ProfileHero(team: _team),
+                  const SizedBox(height: SpacingTokens.lg),
+                  _IdentitySummary(
+                    memberSince: _Demo.memberSince,
+                    lastActive: _Demo.lastActive,
+                    club: _team,
+                    access: _Demo.accessLevel,
+                  ),
                   const SizedBox(height: SpacingTokens.xl),
-                  _buildSegmentedControl(),
+                  _SegmentedControl(
+                    tabs: _tabs,
+                    selected: _tabIndex,
+                    onChanged: (i) => setState(() => _tabIndex = i),
+                  ),
                   const SizedBox(height: SpacingTokens.xl),
                   if (_tabIndex == 0) _buildOverview(),
                   if (_tabIndex == 1) _buildActivity(),
@@ -55,23 +125,212 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  // ---------------------------------------------------------------------------
+  // OVERVIEW
+  // ---------------------------------------------------------------------------
+
+  Widget _buildOverview() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Platform metrics
+        Text('PLATFORM USAGE  ·  LAST 30 DAYS',
+            style: TypographyTokens.sectionLabel),
+        const SizedBox(height: SpacingTokens.md),
+        const Row(children: [
+          Expanded(child: _StatCard(value: _Demo.briefsGenerated, label: 'BRIEFS\nGENERATED')),
+          SizedBox(width: SpacingTokens.sm),
+          Expanded(child: _StatCard(value: _Demo.simulationsRun, label: 'SIMULATIONS\nRUN')),
+        ]),
+        const SizedBox(height: SpacingTokens.sm),
+        const Row(children: [
+          Expanded(child: _StatCard(value: _Demo.savedBlueprints, label: 'SAVED\nBLUEPRINTS')),
+          SizedBox(width: SpacingTokens.sm),
+          Expanded(child: _StatCard(value: _Demo.reportsExported, label: 'REPORTS\nEXPORTED')),
+        ]),
+
+        const SizedBox(height: SpacingTokens.xl),
+        const Divider(height: 1, color: ColorTokens.divider),
+        const SizedBox(height: SpacingTokens.xl),
+
+        // Recent activity (top 3 in overview)
+        Text('RECENT ACTIVITY', style: TypographyTokens.sectionLabel),
+        const SizedBox(height: SpacingTokens.md),
+        for (final a in _Demo.activities.take(3))
+          _ActivityItem(action: a.action, detail: a.detail, time: a.time),
+
+        const SizedBox(height: SpacingTokens.xl),
+        const Divider(height: 1, color: ColorTokens.divider),
+        const SizedBox(height: SpacingTokens.xl),
+
+        // Workspace / club context
+        Text('WORKSPACE', style: TypographyTokens.sectionLabel),
+        const SizedBox(height: SpacingTokens.md),
+        _InfoRow(label: 'DEFAULT CLUB', value: _team),
+        _InfoRow(label: 'PREFERRED TEAM', value: _team),
+        const _InfoRow(label: 'LAST ANALYZED', value: _Demo.lastAnalyzed),
+        const _InfoRow(label: 'LEAGUE', value: _Demo.league),
+        const _InfoRow(label: 'SEASON', value: _Demo.season),
+        const _InfoRow(label: 'LANGUAGE', value: _Demo.language),
+        const _InfoRow(label: 'EXPORT FORMAT', value: _Demo.exportFormat),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // ACTIVITY
+  // ---------------------------------------------------------------------------
+
+  Widget _buildActivity() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('RECENT ACTIVITY', style: TypographyTokens.sectionLabel),
+        const SizedBox(height: SpacingTokens.md),
+        for (final a in _Demo.activities)
+          _ActivityItem(action: a.action, detail: a.detail, time: a.time),
+
+        const SizedBox(height: SpacingTokens.xl),
+        const Divider(height: 1, color: ColorTokens.divider),
+        const SizedBox(height: SpacingTokens.xl),
+
+        Text('SAVED BRIEFS', style: TypographyTokens.sectionLabel),
+        const SizedBox(height: SpacingTokens.md),
+        for (final s in _Demo.savedBriefs)
+          _SavedItem(title: s.title, date: s.date),
+
+        const SizedBox(height: SpacingTokens.xl),
+        const Divider(height: 1, color: ColorTokens.divider),
+        const SizedBox(height: SpacingTokens.xl),
+
+        // Saved assets summary
+        Text('SAVED ASSETS', style: TypographyTokens.sectionLabel),
+        const SizedBox(height: SpacingTokens.md),
+        const Row(children: [
+          Expanded(child: _StatCard(value: '3', label: 'SAVED\nBRIEFS')),
+          SizedBox(width: SpacingTokens.sm),
+          Expanded(child: _StatCard(value: _Demo.savedBlueprints, label: 'SAVED\nBLUEPRINTS')),
+          SizedBox(width: SpacingTokens.sm),
+          Expanded(child: _StatCard(value: '2', label: 'WATCHLIST\nTEAMS')),
+        ]),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // ACCOUNT
+  // ---------------------------------------------------------------------------
+
+  Widget _buildAccount(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('PLAN & ACCESS', style: TypographyTokens.sectionLabel),
+        const SizedBox(height: SpacingTokens.md),
+        const _InfoRow(label: 'PLAN', value: _Demo.plan),
+        _InfoRow(label: 'EMAIL', value: _email),
+        _InfoRow(label: 'ROLE', value: _userRole),
+        const _InfoRow(label: 'SECURITY', value: _Demo.security),
+        const _InfoRow(label: 'NOTIFICATIONS', value: _Demo.notifications),
+
+        const SizedBox(height: SpacingTokens.xl),
+        const Divider(height: 1, color: ColorTokens.divider),
+        const SizedBox(height: SpacingTokens.xl),
+
+        Text('PREFERENCES', style: TypographyTokens.sectionLabel),
+        const SizedBox(height: SpacingTokens.md),
+        const _InfoRow(label: 'LANGUAGE', value: _Demo.language),
+        const _InfoRow(label: 'EXPORT FORMAT', value: _Demo.exportFormat),
+        const _InfoRow(label: 'DEFAULT VIEW', value: 'Dashboard'),
+        _InfoRow(label: 'DEFAULT CLUB', value: _team),
+
+        const SizedBox(height: SpacingTokens.xl),
+        const Divider(height: 1, color: ColorTokens.divider),
+        const SizedBox(height: SpacingTokens.xl),
+
+        Text('SAVED ASSETS', style: TypographyTokens.sectionLabel),
+        const SizedBox(height: SpacingTokens.md),
+        const Row(children: [
+          Expanded(child: _StatCard(value: '3', label: 'SAVED\nBRIEFS')),
+          SizedBox(width: SpacingTokens.sm),
+          Expanded(child: _StatCard(value: _Demo.savedBlueprints, label: 'SAVED\nBLUEPRINTS')),
+          SizedBox(width: SpacingTokens.sm),
+          Expanded(child: _StatCard(value: '2', label: 'WATCHLIST\nTEAMS')),
+        ]),
+
+        const SizedBox(height: SpacingTokens.xl),
+        const Divider(height: 1, color: ColorTokens.divider),
+        const SizedBox(height: SpacingTokens.xl),
+
+        Text('SECURITY', style: TypographyTokens.sectionLabel),
+        const SizedBox(height: SpacingTokens.md),
+        const _InfoRow(label: 'PASSWORD', value: '••••••••'),
+        const _InfoRow(label: 'TWO-FACTOR', value: 'Not enabled'),
+        const _InfoRow(label: 'LAST LOGIN', value: 'Today'),
+
+        const SizedBox(height: SpacingTokens.xxl),
+
+        // Bottom actions
+        _ActionButton(
+          label: 'EDIT PROFILE',
+          icon: Icons.edit_outlined,
+          onTap: () {},
+        ),
+        const SizedBox(height: SpacingTokens.sm),
+        _ActionButton(
+          label: 'MANAGE PREFERENCES',
+          icon: Icons.tune_outlined,
+          onTap: () {},
+        ),
+        const SizedBox(height: SpacingTokens.sm),
+        _ActionButton(
+          label: 'LOG OUT',
+          icon: Icons.logout,
+          isDestructive: true,
+          onTap: () async {
+            await widget.authState.logout();
+            if (context.mounted) {
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            }
+          },
+        ),
+
+        const SizedBox(height: SpacingTokens.xl),
+        Center(
+          child: Text(
+            'UMBRARO v0.1.0  ·  THESIS BUILD',
+            style: TypographyTokens.sectionLabel.copyWith(
+              color: ColorTokens.textMuted.withValues(alpha: 0.4),
+              fontSize: 9,
+              letterSpacing: 2.0,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// =============================================================================
+// REUSABLE PROFILE WIDGETS
+// =============================================================================
+
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({required this.onBack});
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        SpacingTokens.md,
-        SpacingTokens.md,
-        SpacingTokens.md,
-        SpacingTokens.sm,
+        SpacingTokens.md, SpacingTokens.md,
+        SpacingTokens.md, SpacingTokens.sm,
       ),
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
-            child: const Icon(
-              Icons.arrow_back,
-              size: 20,
-              color: ColorTokens.accent,
-            ),
+            onTap: onBack,
+            child: const Icon(Icons.arrow_back, size: 20, color: ColorTokens.accent),
           ),
           const SizedBox(width: SpacingTokens.sm),
           Text(
@@ -83,45 +342,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const Spacer(),
           GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
-            child: const Icon(
-              Icons.close,
-              size: 20,
-              color: ColorTokens.textMuted,
-            ),
+            onTap: onBack,
+            child: const Icon(Icons.close, size: 20, color: ColorTokens.textMuted),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildProfileHero() {
-    final name = _user?.email.split('@').first ?? 'Coach';
-    final team = _user?.teamName ?? 'No Team';
-    final role = _user?.role.toUpperCase() ?? 'COACH';
+// -----------------------------------------------------------------------------
 
+class _ProfileHero extends StatelessWidget {
+  const _ProfileHero({required this.team});
+  final String team;
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       children: [
         Container(
-          width: 80,
-          height: 80,
+          width: 88,
+          height: 88,
           decoration: BoxDecoration(
             color: ColorTokens.surfaceHigh,
             border: Border.all(color: ColorTokens.accent, width: 2),
           ),
-          padding: const EdgeInsets.all(SpacingTokens.xs),
-          child: Image.asset(
-            'assets/branding/logo_icon.png',
-            fit: BoxFit.contain,
-          ),
+          padding: const EdgeInsets.all(10),
+          child: Image.asset('assets/branding/logo_icon.png', fit: BoxFit.contain),
         ),
         const SizedBox(height: SpacingTokens.md),
         Text(
-          name.toUpperCase(),
+          _Demo.name.toUpperCase(),
           style: TypographyTokens.headline.copyWith(fontSize: 22),
         ),
         const SizedBox(height: SpacingTokens.xxs),
-        Text(role, style: TypographyTokens.sectionLabel),
+        Text(_Demo.role, style: TypographyTokens.sectionLabel),
         const SizedBox(height: SpacingTokens.xs),
         Text(
           team,
@@ -130,18 +386,106 @@ class _ProfileScreenState extends State<ProfileScreen> {
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: SpacingTokens.lg),
-        const _MetaRow(
-          leftLabel: 'MEMBER SINCE',
-          leftValue: 'Apr 2026',
-          rightLabel: 'PLATFORM',
-          rightValue: 'Pro',
+        const SizedBox(height: SpacingTokens.xxs),
+        Text(
+          _Demo.country.toUpperCase(),
+          style: TypographyTokens.sectionLabel.copyWith(
+            fontSize: 9,
+            letterSpacing: 2.5,
+            color: ColorTokens.textMuted.withValues(alpha: 0.7),
+          ),
         ),
       ],
     );
   }
+}
 
-  Widget _buildSegmentedControl() {
+// -----------------------------------------------------------------------------
+
+class _IdentitySummary extends StatelessWidget {
+  const _IdentitySummary({
+    required this.memberSince,
+    required this.lastActive,
+    required this.club,
+    required this.access,
+  });
+
+  final String memberSince, lastActive, club, access;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(
+          top: BorderSide(color: ColorTokens.divider),
+          bottom: BorderSide(color: ColorTokens.divider),
+        ),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            _cell('MEMBER SINCE', memberSince),
+            const VerticalDivider(width: 1, color: ColorTokens.divider),
+            _cell('LAST ACTIVE', lastActive),
+            const VerticalDivider(width: 1, color: ColorTokens.divider),
+            _cell('CLUB', club),
+            const VerticalDivider(width: 1, color: ColorTokens.divider),
+            _cell('ACCESS', access),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _cell(String label, String value) {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          vertical: SpacingTokens.sm,
+          horizontal: SpacingTokens.xs,
+        ),
+        child: Column(
+          children: [
+            Text(
+              label,
+              style: TypographyTokens.sectionLabel.copyWith(fontSize: 8, letterSpacing: 1.2),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: SpacingTokens.xxs),
+            Text(
+              value,
+              style: TypographyTokens.body.copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+
+class _SegmentedControl extends StatelessWidget {
+  const _SegmentedControl({
+    required this.tabs,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final List<String> tabs;
+  final int selected;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       height: 40,
       decoration: BoxDecoration(
@@ -149,25 +493,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
         border: Border.all(color: ColorTokens.divider),
       ),
       child: Row(
-        children: List.generate(_tabs.length, (i) {
-          final selected = _tabIndex == i;
+        children: List.generate(tabs.length, (i) {
+          final active = selected == i;
           return Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => _tabIndex = i),
+              onTap: () => onChanged(i),
               child: Container(
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: selected ? ColorTokens.surfaceHigh : Colors.transparent,
-                  border: selected
-                      ? const Border(
-                          bottom: BorderSide(color: ColorTokens.accent, width: 2),
-                        )
+                  color: active ? ColorTokens.surfaceHigh : Colors.transparent,
+                  border: active
+                      ? const Border(bottom: BorderSide(color: ColorTokens.accent, width: 2))
                       : null,
                 ),
                 child: Text(
-                  _tabs[i],
+                  tabs[i],
                   style: TypographyTokens.sectionLabel.copyWith(
-                    color: selected ? ColorTokens.accent : ColorTokens.textMuted,
+                    color: active ? ColorTokens.accent : ColorTokens.textMuted,
                     letterSpacing: 1.6,
                   ),
                 ),
@@ -178,235 +520,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-
-  // ---------------------------------------------------------------------------
-  // OVERVIEW TAB
-  // ---------------------------------------------------------------------------
-
-  Widget _buildOverview() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('PLATFORM USAGE', style: TypographyTokens.sectionLabel),
-        const SizedBox(height: SpacingTokens.md),
-        const Row(
-          children: [
-            Expanded(child: _StatCard(value: '18', label: 'BRIEFS\nGENERATED')),
-            SizedBox(width: SpacingTokens.sm),
-            Expanded(child: _StatCard(value: '42', label: 'SIMULATIONS\nRUN')),
-          ],
-        ),
-        const SizedBox(height: SpacingTokens.sm),
-        const Row(
-          children: [
-            Expanded(child: _StatCard(value: '7', label: 'SAVED\nBLUEPRINTS')),
-            SizedBox(width: SpacingTokens.sm),
-            Expanded(child: _StatCard(value: '5', label: 'REPORTS\nEXPORTED')),
-          ],
-        ),
-        const SizedBox(height: SpacingTokens.xl),
-        const Divider(height: 1, color: ColorTokens.divider),
-        const SizedBox(height: SpacingTokens.xl),
-        Text('CLUB CONTEXT', style: TypographyTokens.sectionLabel),
-        const SizedBox(height: SpacingTokens.md),
-        _InfoRow(
-          label: 'PREFERRED TEAM',
-          value: _user?.teamName ?? '—',
-        ),
-        const _InfoRow(label: 'LAST ANALYZED', value: 'vs CFR Cluj'),
-        const _InfoRow(label: 'LEAGUE', value: 'Romanian Superliga'),
-        const _InfoRow(label: 'SEASON', value: '2024–2025'),
-        const SizedBox(height: SpacingTokens.xl),
-        const Divider(height: 1, color: ColorTokens.divider),
-        const SizedBox(height: SpacingTokens.xl),
-        Text('COACHING PROFILE', style: TypographyTokens.sectionLabel),
-        const SizedBox(height: SpacingTokens.md),
-        const _InfoRow(label: 'TACTICAL STYLE', value: 'Structured Pressure'),
-        const _InfoRow(label: 'FORMATION PREF', value: '4-2-3-1'),
-        const _InfoRow(label: 'FOCUS AREA', value: 'Set-Piece Optimization'),
-      ],
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // ACTIVITY TAB
-  // ---------------------------------------------------------------------------
-
-  Widget _buildActivity() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('RECENT ACTIVITY', style: TypographyTokens.sectionLabel),
-        const SizedBox(height: SpacingTokens.md),
-        const _ActivityItem(
-          action: 'Generated tactical brief',
-          detail: 'FCSB vs CFR Cluj',
-          time: '2h ago',
-        ),
-        const _ActivityItem(
-          action: 'Ran Monte Carlo simulation',
-          detail: 'FCSB vs Rapid București',
-          time: '1d ago',
-        ),
-        const _ActivityItem(
-          action: 'Exported match report',
-          detail: 'FCSB vs Universitatea Craiova',
-          time: '3d ago',
-        ),
-        const _ActivityItem(
-          action: 'Saved tactical blueprint',
-          detail: 'High-possession overload plan',
-          time: '5d ago',
-        ),
-        const _ActivityItem(
-          action: 'Analyzed fixture probabilities',
-          detail: 'Round 28 — full batch',
-          time: '1w ago',
-        ),
-        const SizedBox(height: SpacingTokens.xl),
-        const Divider(height: 1, color: ColorTokens.divider),
-        const SizedBox(height: SpacingTokens.xl),
-        Text('SAVED BRIEFS', style: TypographyTokens.sectionLabel),
-        const SizedBox(height: SpacingTokens.md),
-        const _SavedItem(title: 'vs CFR Cluj — Match Brief', date: 'Mar 28, 2026'),
-        const _SavedItem(title: 'vs Rapid — Tactical Blueprint', date: 'Mar 21, 2026'),
-        const _SavedItem(title: 'vs U Craiova — Key Drivers Report', date: 'Mar 14, 2026'),
-      ],
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // ACCOUNT TAB
-  // ---------------------------------------------------------------------------
-
-  Widget _buildAccount(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('PLAN & ACCESS', style: TypographyTokens.sectionLabel),
-        const SizedBox(height: SpacingTokens.md),
-        const _InfoRow(label: 'PLAN', value: 'Pro — Thesis Build'),
-        _InfoRow(label: 'EMAIL', value: _user?.email ?? '—'),
-        _InfoRow(
-          label: 'ROLE',
-          value: _user?.role.toUpperCase() ?? '—',
-        ),
-        const _InfoRow(label: 'STATUS', value: 'ACTIVE'),
-        const SizedBox(height: SpacingTokens.xl),
-        const Divider(height: 1, color: ColorTokens.divider),
-        const SizedBox(height: SpacingTokens.xl),
-        Text('PREFERENCES', style: TypographyTokens.sectionLabel),
-        const SizedBox(height: SpacingTokens.md),
-        const _InfoRow(label: 'LANGUAGE', value: 'English'),
-        const _InfoRow(label: 'NOTIFICATIONS', value: 'Enabled'),
-        const _InfoRow(label: 'EXPORT FORMAT', value: 'PDF'),
-        const _InfoRow(label: 'DEFAULT VIEW', value: 'Dashboard'),
-        const SizedBox(height: SpacingTokens.xl),
-        const Divider(height: 1, color: ColorTokens.divider),
-        const SizedBox(height: SpacingTokens.xl),
-        Text('SECURITY', style: TypographyTokens.sectionLabel),
-        const SizedBox(height: SpacingTokens.md),
-        const _InfoRow(label: 'PASSWORD', value: '••••••••'),
-        const _InfoRow(label: 'TWO-FACTOR', value: 'Not enabled'),
-        const _InfoRow(label: 'LAST LOGIN', value: 'Today'),
-        const SizedBox(height: SpacingTokens.xxl),
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: TextButton(
-            style: TextButton.styleFrom(
-              backgroundColor: Colors.transparent,
-              shape: const RoundedRectangleBorder(),
-              side: const BorderSide(color: ColorTokens.negative),
-            ),
-            onPressed: () async {
-              await widget.authState.logout();
-              if (context.mounted) {
-                Navigator.of(context).popUntil((route) => route.isFirst);
-              }
-            },
-            child: Text(
-              'LOGOUT',
-              style: TypographyTokens.sectionLabel.copyWith(
-                color: ColorTokens.negative,
-                letterSpacing: 2.0,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: SpacingTokens.md),
-        Center(
-          child: Text(
-            'UmbraRo v0.1.0 — Thesis Build',
-            style: TypographyTokens.sectionLabel.copyWith(
-              color: ColorTokens.textMuted.withValues(alpha: 0.5),
-              fontSize: 9,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
-// =============================================================================
-// REUSABLE WIDGETS
-// =============================================================================
-
-class _MetaRow extends StatelessWidget {
-  const _MetaRow({
-    required this.leftLabel,
-    required this.leftValue,
-    required this.rightLabel,
-    required this.rightValue,
-  });
-
-  final String leftLabel, leftValue, rightLabel, rightValue;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: SpacingTokens.md,
-        vertical: SpacingTokens.sm,
-      ),
-      decoration: const BoxDecoration(
-        border: Border(
-          top: BorderSide(color: ColorTokens.divider),
-          bottom: BorderSide(color: ColorTokens.divider),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(leftLabel, style: TypographyTokens.sectionLabel),
-                const SizedBox(height: SpacingTokens.xxs),
-                Text(leftValue, style: TypographyTokens.body),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(rightLabel, style: TypographyTokens.sectionLabel),
-                const SizedBox(height: SpacingTokens.xxs),
-                Text(rightValue, style: TypographyTokens.body),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// -----------------------------------------------------------------------------
 
 class _StatCard extends StatelessWidget {
   const _StatCard({required this.value, required this.label});
-
   final String value;
   final String label;
 
@@ -421,7 +540,7 @@ class _StatCard extends StatelessWidget {
           Text(
             value,
             style: TypographyTokens.headline.copyWith(
-              fontSize: 32,
+              fontSize: 28,
               color: ColorTokens.accent,
             ),
           ),
@@ -433,9 +552,10 @@ class _StatCard extends StatelessWidget {
   }
 }
 
+// -----------------------------------------------------------------------------
+
 class _InfoRow extends StatelessWidget {
   const _InfoRow({required this.label, required this.value});
-
   final String label;
   final String value;
 
@@ -447,11 +567,13 @@ class _InfoRow extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: TypographyTokens.sectionLabel),
+          const SizedBox(width: SpacingTokens.md),
           Flexible(
             child: Text(
               value,
               style: TypographyTokens.body.copyWith(fontWeight: FontWeight.w600),
               textAlign: TextAlign.end,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -460,6 +582,8 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
+// -----------------------------------------------------------------------------
+
 class _ActivityItem extends StatelessWidget {
   const _ActivityItem({
     required this.action,
@@ -467,9 +591,7 @@ class _ActivityItem extends StatelessWidget {
     required this.time,
   });
 
-  final String action;
-  final String detail;
-  final String time;
+  final String action, detail, time;
 
   @override
   Widget build(BuildContext context) {
@@ -480,11 +602,7 @@ class _ActivityItem extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 4,
-            height: 40,
-            color: ColorTokens.accent,
-          ),
+          Container(width: 3, height: 36, color: ColorTokens.accent),
           const SizedBox(width: SpacingTokens.sm),
           Expanded(
             child: Column(
@@ -501,21 +619,18 @@ class _ActivityItem extends StatelessWidget {
               ],
             ),
           ),
-          Text(
-            time,
-            style: TypographyTokens.sectionLabel.copyWith(fontSize: 9),
-          ),
+          Text(time, style: TypographyTokens.sectionLabel.copyWith(fontSize: 9)),
         ],
       ),
     );
   }
 }
 
+// -----------------------------------------------------------------------------
+
 class _SavedItem extends StatelessWidget {
   const _SavedItem({required this.title, required this.date});
-
-  final String title;
-  final String date;
+  final String title, date;
 
   @override
   Widget build(BuildContext context) {
@@ -523,16 +638,65 @@ class _SavedItem extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: SpacingTokens.sm),
       child: Row(
         children: [
-          const Icon(Icons.description_outlined, size: 16, color: ColorTokens.accent),
+          const Icon(Icons.description_outlined, size: 14, color: ColorTokens.accent),
           const SizedBox(width: SpacingTokens.sm),
           Expanded(
             child: Text(
               title,
               style: TypographyTokens.body.copyWith(fontWeight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          Text(date, style: TypographyTokens.sectionLabel),
+          Text(date, style: TypographyTokens.sectionLabel.copyWith(fontSize: 9)),
         ],
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.isDestructive = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool isDestructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isDestructive ? ColorTokens.negative : ColorTokens.accent;
+
+    return SizedBox(
+      width: double.infinity,
+      height: 48,
+      child: TextButton(
+        style: TextButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shape: const RoundedRectangleBorder(),
+          side: BorderSide(color: color.withValues(alpha: isDestructive ? 1.0 : 0.3)),
+        ),
+        onPressed: onTap,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: SpacingTokens.xs),
+            Text(
+              label,
+              style: TypographyTokens.sectionLabel.copyWith(
+                color: color,
+                letterSpacing: 2.0,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
