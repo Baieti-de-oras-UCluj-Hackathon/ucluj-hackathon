@@ -4,7 +4,7 @@ import logging
 
 from clients.sportradar_client import SportradarClient, SportradarError
 from sportradar.schemas import CoverageReport, FeedProbeResult, SRSeasonCoverage
-from sportradar.services.competition_sync import CompetitionSyncService
+from sportradar.services.competition_sync import CompetitionSyncService, get_discovered_id
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +97,7 @@ class CoverageValidationService:
         report = CoverageReport(
             season_id=season_id,
             season_name=season_name,
-            competition_id=SportradarClient.ROMANIA_SUPERLIGA_ID,
+            competition_id=get_discovered_id() or "",
             coverage_info=coverage,
             feed_probes=probes,
             summary=summary,

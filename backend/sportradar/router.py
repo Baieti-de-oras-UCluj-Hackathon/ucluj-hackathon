@@ -24,15 +24,31 @@ async def sync_competitions():
     svc = CompetitionSyncService(_client())
     comp = await svc.discover_superliga()
     if not comp:
-        raise HTTPException(404, "Romania Superliga not found in Sportradar")
-    return {"competition": comp.model_dump()}
+        raise HTTPException(404, "Romania Superliga not found via discovery in Sportradar competitions list")
+    return {
+        "confirmed": True,
+        "competition_id": comp.id,
+        "competition_name": comp.name,
+        "category_name": comp.category.name,
+        "country_code": comp.category.country_code,
+        "gender": comp.gender,
+        "note": "This ID was discovered from the live API, not hardcoded. Use it for all subsequent season/fixture calls.",
+    }
 
 
 @router.post("/seasons")
 async def sync_seasons():
     svc = CompetitionSyncService(_client())
-    seasons = await svc.list_seasons()
-    return {"count": len(seasons), "seasons": [s.model_dump() for s in seasons]}
+    comp = await svc.discover_superliga()
+    if not comp:
+        raise HTTPException(404, "Run /competitions first — could not discover Superliga")
+    seasons = await svc.list_seasons(comp.id)
+    return {
+        "competition_id": comp.id,
+        "competition_name": comp.name,
+        "count": len(seasons),
+        "seasons": [s.model_dump() for s in seasons],
+    }
 
 
 @router.post("/seasons/{season_id}/coverage")
@@ -179,7 +195,7 @@ async def sync_status():
                 "POST /seasons/{season_id}/fixtures",
             ],
             "standings": [
-                "POST /seasons/{season_id}/standings",
+                "POST /seasons/{season_id}/standings  (season standings sync, not guaranteed live)",
             ],
             "match_detail": [
                 "POST /fixtures/{fixture_id}/detail",

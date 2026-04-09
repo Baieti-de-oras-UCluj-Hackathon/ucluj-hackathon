@@ -22,7 +22,6 @@ class SportradarError(Exception):
 
 
 class SportradarClient:
-    ROMANIA_SUPERLIGA_ID = "sr:competition:202"
 
     def __init__(self):
         self._base = settings.sportradar_base_url.rstrip("/")

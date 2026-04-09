@@ -7,7 +7,14 @@ from sportradar.schemas import SRCompetition, SRCategory, SRSeason, SRSeasonCove
 
 logger = logging.getLogger(__name__)
 
-SUPERLIGA_ID = SportradarClient.ROMANIA_SUPERLIGA_ID
+_ROMANIA_KEYWORDS = {"romania", "superliga", "liga 1", "liga i"}
+_ROMANIA_COUNTRY_CODES = {"ROU", "ROM"}
+
+_discovered_competition_id: str | None = None
+
+
+def get_discovered_id() -> str | None:
+    return _discovered_competition_id
 
 
 class CompetitionSyncService:
@@ -16,13 +23,24 @@ class CompetitionSyncService:
         self._client = client
 
     async def discover_superliga(self) -> SRCompetition | None:
+        global _discovered_competition_id
+
         data = await self._client.competitions()
         if not data:
             return None
 
+        candidates: list[SRCompetition] = []
+
         for raw in data.get("competitions", []):
-            if raw.get("id") == SUPERLIGA_ID:
-                cat = raw.get("category", {})
+            cat = raw.get("category", {})
+            country = cat.get("country_code", "").upper()
+            name_lower = raw.get("name", "").lower()
+            cat_name_lower = cat.get("name", "").lower()
+
+            is_romania = country in _ROMANIA_COUNTRY_CODES or "romania" in cat_name_lower
+            is_superliga = any(kw in name_lower for kw in _ROMANIA_KEYWORDS)
+
+            if is_romania and is_superliga:
                 comp = SRCompetition(
                     id=raw.get("id", ""),
                     name=raw.get("name", ""),
@@ -33,14 +51,27 @@ class CompetitionSyncService:
                         country_code=cat.get("country_code", ""),
                     ),
                 )
-                logger.info("Found Romania Superliga: %s (%s)", comp.name, comp.id)
-                return comp
+                candidates.append(comp)
 
-        logger.warning("Romania Superliga (%s) not found in competitions list", SUPERLIGA_ID)
-        return None
+        if not candidates:
+            logger.warning("Romania Superliga not found via discovery in competitions list")
+            return None
 
-    async def list_seasons(self) -> list[SRSeason]:
-        data = await self._client.competition_seasons(SUPERLIGA_ID)
+        chosen = candidates[0]
+        _discovered_competition_id = chosen.id
+        logger.info(
+            "Discovered Romania Superliga: name=%s, id=%s, category=%s, country=%s",
+            chosen.name, chosen.id, chosen.category.name, chosen.category.country_code,
+        )
+        return chosen
+
+    async def list_seasons(self, competition_id: str | None = None) -> list[SRSeason]:
+        cid = competition_id or _discovered_competition_id
+        if not cid:
+            logger.error("No competition ID available. Run discover_superliga first.")
+            return []
+
+        data = await self._client.competition_seasons(cid)
         if not data:
             return []
 
@@ -52,11 +83,11 @@ class CompetitionSyncService:
                 start_date=raw.get("start_date", ""),
                 end_date=raw.get("end_date", ""),
                 year=raw.get("year", ""),
-                competition_id=raw.get("competition_id", SUPERLIGA_ID),
+                competition_id=raw.get("competition_id", cid),
             ))
 
         seasons.sort(key=lambda s: s.start_date, reverse=True)
-        logger.info("Found %d seasons for Superliga", len(seasons))
+        logger.info("Found %d seasons for competition %s", len(seasons), cid)
         return seasons
 
     async def season_coverage(self, season_id: str) -> SRSeasonCoverage | None:
