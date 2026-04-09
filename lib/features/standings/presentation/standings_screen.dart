@@ -7,7 +7,7 @@ import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/app_scaffold.dart';
 
 // =============================================================================
-// DEMO STANDINGS DATA
+// DEMO DATA
 // =============================================================================
 
 class _TeamStanding {
@@ -51,7 +51,7 @@ const _kStandings = <_TeamStanding>[
 ];
 
 // =============================================================================
-// STANDINGS SCREEN
+// SCREEN
 // =============================================================================
 
 class StandingsScreen extends StatefulWidget {
@@ -83,8 +83,7 @@ class _StandingsScreenState extends State<StandingsScreen> {
     }
   }
 
-  _TeamStanding get _tracked =>
-      _kStandings.firstWhere((t) => t.isTracked);
+  _TeamStanding get _tracked => _kStandings.firstWhere((t) => t.isTracked);
 
   @override
   Widget build(BuildContext context) {
@@ -94,75 +93,74 @@ class _StandingsScreenState extends State<StandingsScreen> {
       onProfileTap: widget.onProfileTap,
       body: ListView(
         children: [
-          // 1 — Title
-          Text(
-            'COMPETITION / SUPERLIGA',
-            style: TypographyTokens.sectionLabel.copyWith(
-              color: ColorTokens.accent,
-            ),
-          ),
-          const SizedBox(height: SpacingTokens.xs),
+          // ── Title zone ──────────────────────────────────────────
+          const SizedBox(height: SpacingTokens.md),
           Text(
             'LEAGUE',
-            style: TypographyTokens.displayHero.copyWith(fontSize: 56),
+            style: TypographyTokens.displayHero.copyWith(
+              fontSize: 72,
+              height: 0.9,
+            ),
           ),
           Text(
             'STANDINGS',
             style: TypographyTokens.displayHero.copyWith(
-              fontSize: 56,
-              color: ColorTokens.surfaceHigh,
+              fontSize: 72,
+              height: 0.9,
+              color: ColorTokens.textMuted.withValues(alpha: 0.18),
             ),
           ),
-          const SizedBox(height: SpacingTokens.xxs),
+          const SizedBox(height: SpacingTokens.md),
           Text(
-            'SUPERLIGA ROMANIA · 2024/25  ·  MATCHWEEK 28',
-            style: TypographyTokens.sectionLabel,
+            'SUPERLIGA ROMANIA  ·  2024/25  ·  MW 28',
+            style: TypographyTokens.sectionLabel.copyWith(
+              color: ColorTokens.accent,
+              letterSpacing: 2.0,
+            ),
           ),
 
-          const SizedBox(height: SpacingTokens.xl),
+          const SizedBox(height: 36),
 
-          // 2 — Filter
+          // ── Hero tracked club ───────────────────────────────────
+          _HeroClubCard(team: _tracked),
+
+          const SizedBox(height: 36),
+
+          // ── Filter ──────────────────────────────────────────────
           _SegmentedFilter(
             tabs: _filters,
             selected: _filterIndex,
             onChanged: (i) => setState(() => _filterIndex = i),
           ),
 
-          const SizedBox(height: SpacingTokens.xl),
+          const SizedBox(height: SpacingTokens.lg),
 
-          // 3 — Hero club card
-          _HeroClubCard(team: _tracked),
-
-          const SizedBox(height: SpacingTokens.xl),
-
-          // 4 — Table header
+          // ── Table ───────────────────────────────────────────────
           const _TableHeader(),
-          const Divider(height: 1, color: ColorTokens.divider),
 
-          // 5 — Standings rows
           for (final team in _filtered) _StandingsRow(team: team),
 
-          const SizedBox(height: SpacingTokens.xl),
+          const SizedBox(height: 36),
 
-          // 6 — Summary cards
-          _SummaryCard(
+          // ── Context cards ───────────────────────────────────────
+          _ContextCard(
             label: 'POINTS TO LEADER',
             value: '09',
-            description: 'CFR Cluj leads with 59 pts. Gap closeable in 3 matchweeks.',
+            note: 'CFR Cluj · 59 pts · gap closeable in 3 matchweeks',
             valueColor: ColorTokens.negative,
           ),
-          const SizedBox(height: 1),
-          const _SummaryCard(
+          const SizedBox(height: 2),
+          const _ContextCard(
             label: 'NEXT FIXTURE',
-            value: 'vs CFR',
-            description: 'Home · Dr. Constantin Rădulescu · Sat 19:30',
-            isTextValue: true,
+            value: 'VS CFR CLUJ',
+            note: 'Away · Dr. Constantin Rădulescu · Sat 19:30',
+            isCompact: true,
           ),
-          const SizedBox(height: 1),
-          const _SummaryCard(
-            label: 'EUROPEAN SPOT',
+          const SizedBox(height: 2),
+          const _ContextCard(
+            label: 'EUROPEAN QUALIFICATION',
             value: '03',
-            description: 'Currently in European qualification position. 1 point buffer to 4th.',
+            note: 'Holding 3rd. 1-point buffer to 4th-placed Rapid.',
             valueColor: ColorTokens.positive,
           ),
         ],
@@ -172,7 +170,7 @@ class _StandingsScreenState extends State<StandingsScreen> {
 }
 
 // =============================================================================
-// REUSABLE WIDGETS
+// WIDGETS
 // =============================================================================
 
 class _SegmentedFilter extends StatelessWidget {
@@ -188,12 +186,8 @@ class _SegmentedFilter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 36,
-      decoration: BoxDecoration(
-        color: ColorTokens.surfaceLow,
-        border: Border.all(color: ColorTokens.divider),
-      ),
+    return SizedBox(
+      height: 32,
       child: Row(
         children: List.generate(tabs.length, (i) {
           final active = selected == i;
@@ -202,20 +196,13 @@ class _SegmentedFilter extends StatelessWidget {
               onTap: () => onChanged(i),
               child: Container(
                 alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: active ? ColorTokens.surfaceHigh : Colors.transparent,
-                  border: active
-                      ? const Border(
-                          bottom: BorderSide(color: ColorTokens.accent, width: 2),
-                        )
-                      : null,
-                ),
+                color: active ? ColorTokens.surfaceHigh : ColorTokens.surfaceLow,
                 child: Text(
                   tabs[i],
                   style: TypographyTokens.sectionLabel.copyWith(
                     color: active ? ColorTokens.accent : ColorTokens.textMuted,
-                    fontSize: 10,
-                    letterSpacing: 1.4,
+                    fontSize: 9,
+                    letterSpacing: 1.6,
                   ),
                 ),
               ),
@@ -237,54 +224,89 @@ class _HeroClubCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: ColorTokens.surfaceLow,
-      padding: const EdgeInsets.all(SpacingTokens.lg),
+      padding: const EdgeInsets.fromLTRB(
+        SpacingTokens.lg, SpacingTokens.xl,
+        SpacingTokens.lg, SpacingTokens.xl,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Identity row
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               SizedBox(
-                width: 36,
-                height: 36,
+                width: 44,
+                height: 44,
                 child: Image.asset(team.logoAsset, fit: BoxFit.contain),
               ),
-              const SizedBox(width: SpacingTokens.sm),
-              Text(
-                team.shortName.toUpperCase(),
-                style: TypographyTokens.headline.copyWith(fontSize: 20),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: SpacingTokens.sm,
-                  vertical: SpacingTokens.xxs,
-                ),
-                color: ColorTokens.surfaceHigh,
-                child: Text(
-                  'RANK #${team.pos}',
-                  style: TypographyTokens.sectionLabel.copyWith(
-                    color: ColorTokens.accent,
-                  ),
+              const SizedBox(width: SpacingTokens.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      team.shortName.toUpperCase(),
+                      style: TypographyTokens.headline.copyWith(fontSize: 18),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'YOUR CLUB  ·  SUPERLIGA',
+                      style: TypographyTokens.sectionLabel.copyWith(fontSize: 8, letterSpacing: 1.8),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: SpacingTokens.lg),
+
+          const SizedBox(height: SpacingTokens.xl),
+
+          // Large metrics row
           Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              _heroMetric('${team.points}', 'PTS'),
-              const SizedBox(width: SpacingTokens.xl),
-              _heroMetric(
-                '${team.gd > 0 ? '+' : ''}${team.gd}',
-                'GD',
+              // Rank — dominant
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '#${team.pos}',
+                    style: TypographyTokens.displayHero.copyWith(
+                      fontSize: 64,
+                      height: 0.85,
+                      color: ColorTokens.accent,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'RANK',
+                    style: TypographyTokens.sectionLabel.copyWith(
+                      fontSize: 9,
+                      letterSpacing: 2.0,
+                    ),
+                  ),
+                ],
               ),
+              const SizedBox(width: 32),
+              // Secondary metrics
+              _metric('${team.points}', 'PTS'),
               const SizedBox(width: SpacingTokens.xl),
-              _heroMetric('${team.played}', 'P'),
+              _metric('${team.gd > 0 ? "+" : ""}${team.gd}', 'GD'),
               const SizedBox(width: SpacingTokens.xl),
-              _heroMetric('${team.wins}', 'W'),
+              _metric('${team.wins}-${team.draws}-${team.losses}', 'W-D-L'),
               const Spacer(),
-              _buildForm(team.form),
+              // Form
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _formRow(team.form),
+                  const SizedBox(height: 4),
+                  Text(
+                    'LAST 5',
+                    style: TypographyTokens.sectionLabel.copyWith(fontSize: 8),
+                  ),
+                ],
+              ),
             ],
           ),
         ],
@@ -292,39 +314,42 @@ class _HeroClubCard extends StatelessWidget {
     );
   }
 
-  Widget _heroMetric(String value, String label) {
+  Widget _metric(String value, String label) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           value,
           style: TypographyTokens.headline.copyWith(
-            fontSize: 26,
-            color: ColorTokens.accent,
+            fontSize: 22,
+            color: ColorTokens.textPrimary,
           ),
         ),
-        Text(label, style: TypographyTokens.sectionLabel.copyWith(fontSize: 9)),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TypographyTokens.sectionLabel.copyWith(fontSize: 8, letterSpacing: 1.4),
+        ),
       ],
     );
   }
 
-  Widget _buildForm(List<String> form) {
+  Widget _formRow(List<String> form) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: form.map((r) {
-        Color c;
+        final Color c;
         switch (r) {
           case 'W':
             c = ColorTokens.positive;
-            break;
           case 'D':
             c = ColorTokens.textMuted;
-            break;
           default:
             c = ColorTokens.negative;
         }
         return Padding(
-          padding: const EdgeInsets.only(left: 4),
-          child: Container(width: 8, height: 8, color: c),
+          padding: const EdgeInsets.only(left: 3),
+          child: Container(width: 10, height: 10, color: c),
         );
       }).toList(),
     );
@@ -338,22 +363,24 @@ class _TableHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final s = TypographyTokens.sectionLabel.copyWith(fontSize: 9);
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        vertical: SpacingTokens.xs,
-        horizontal: SpacingTokens.xxs,
-      ),
+    final s = TypographyTokens.sectionLabel.copyWith(
+      fontSize: 8,
+      letterSpacing: 1.0,
+      color: ColorTokens.textMuted.withValues(alpha: 0.6),
+    );
+    return Container(
+      color: ColorTokens.surfaceLow,
+      padding: const EdgeInsets.symmetric(vertical: SpacingTokens.xs),
       child: Row(
         children: [
-          SizedBox(width: 28, child: Text('#', style: s)),
-          const SizedBox(width: 24),
+          SizedBox(width: 28, child: Text('#', style: s, textAlign: TextAlign.center)),
+          const SizedBox(width: 22),
           Expanded(child: Text('CLUB', style: s)),
-          SizedBox(width: 28, child: Text('P', style: s, textAlign: TextAlign.center)),
-          SizedBox(width: 28, child: Text('W', style: s, textAlign: TextAlign.center)),
-          SizedBox(width: 28, child: Text('D', style: s, textAlign: TextAlign.center)),
-          SizedBox(width: 28, child: Text('L', style: s, textAlign: TextAlign.center)),
-          SizedBox(width: 36, child: Text('GD', style: s, textAlign: TextAlign.center)),
+          SizedBox(width: 26, child: Text('P', style: s, textAlign: TextAlign.center)),
+          SizedBox(width: 26, child: Text('W', style: s, textAlign: TextAlign.center)),
+          SizedBox(width: 26, child: Text('D', style: s, textAlign: TextAlign.center)),
+          SizedBox(width: 26, child: Text('L', style: s, textAlign: TextAlign.center)),
+          SizedBox(width: 34, child: Text('GD', style: s, textAlign: TextAlign.center)),
           SizedBox(width: 34, child: Text('PTS', style: s, textAlign: TextAlign.end)),
         ],
       ),
@@ -369,72 +396,75 @@ class _StandingsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final highlighted = team.isTracked;
-    final bgColor = highlighted ? ColorTokens.surfaceHigh : Colors.transparent;
-    final textColor = highlighted ? ColorTokens.accent : ColorTokens.textPrimary;
-    final valStyle = TypographyTokens.body.copyWith(
-      fontSize: 13,
-      color: textColor,
-      fontWeight: highlighted ? FontWeight.w700 : FontWeight.w400,
+    final hl = team.isTracked;
+
+    final bg = hl ? ColorTokens.surfaceHigh : Colors.transparent;
+    final primary = hl ? ColorTokens.accent : ColorTokens.textPrimary;
+    final muted = hl ? ColorTokens.accent.withValues(alpha: 0.7) : ColorTokens.textMuted;
+
+    final nameStyle = TypographyTokens.body.copyWith(
+      fontSize: 12,
+      fontWeight: FontWeight.w700,
+      color: primary,
+      letterSpacing: hl ? 0.6 : 0,
+    );
+    final numStyle = TypographyTokens.body.copyWith(
+      fontSize: 12,
+      color: primary,
+      fontWeight: hl ? FontWeight.w700 : FontWeight.w400,
     );
 
     return Container(
-      color: bgColor,
-      padding: const EdgeInsets.symmetric(
-        vertical: SpacingTokens.sm,
-        horizontal: SpacingTokens.xxs,
-      ),
+      color: bg,
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         children: [
+          // Position
           SizedBox(
             width: 28,
             child: Text(
               team.pos.toString().padLeft(2, '0'),
-              style: valStyle.copyWith(
-                color: highlighted ? ColorTokens.accent : ColorTokens.textMuted,
-                fontWeight: FontWeight.w700,
-              ),
+              style: numStyle.copyWith(color: muted, fontWeight: FontWeight.w800),
+              textAlign: TextAlign.center,
             ),
           ),
+          // Crest
           SizedBox(
-            width: 20,
-            height: 20,
+            width: 18,
+            height: 18,
             child: Image.asset(team.logoAsset, fit: BoxFit.contain),
           ),
           const SizedBox(width: SpacingTokens.xxs),
-          Expanded(
-            child: Text(
-              team.shortName.toUpperCase(),
-              style: valStyle.copyWith(fontWeight: FontWeight.w700),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          SizedBox(width: 28, child: Text('${team.played}', style: valStyle, textAlign: TextAlign.center)),
-          SizedBox(width: 28, child: Text('${team.wins}', style: valStyle, textAlign: TextAlign.center)),
-          SizedBox(width: 28, child: Text('${team.draws}', style: valStyle, textAlign: TextAlign.center)),
-          SizedBox(width: 28, child: Text('${team.losses}', style: valStyle, textAlign: TextAlign.center)),
+          // Name
+          Expanded(child: Text(team.shortName.toUpperCase(), style: nameStyle, overflow: TextOverflow.ellipsis)),
+          // Stats
+          SizedBox(width: 26, child: Text('${team.played}', style: numStyle, textAlign: TextAlign.center)),
+          SizedBox(width: 26, child: Text('${team.wins}', style: numStyle, textAlign: TextAlign.center)),
+          SizedBox(width: 26, child: Text('${team.draws}', style: numStyle, textAlign: TextAlign.center)),
+          SizedBox(width: 26, child: Text('${team.losses}', style: numStyle, textAlign: TextAlign.center)),
+          // GD — colored
           SizedBox(
-            width: 36,
+            width: 34,
             child: Text(
-              '${team.gd > 0 ? '+' : ''}${team.gd}',
-              style: valStyle.copyWith(
-                color: team.gd > 0
-                    ? ColorTokens.positive
-                    : team.gd < 0
-                        ? ColorTokens.negative
-                        : textColor,
+              '${team.gd > 0 ? "+" : ""}${team.gd}',
+              style: numStyle.copyWith(
+                color: hl
+                    ? ColorTokens.accent
+                    : team.gd > 0
+                        ? ColorTokens.positive
+                        : team.gd < 0
+                            ? ColorTokens.negative
+                            : primary,
               ),
               textAlign: TextAlign.center,
             ),
           ),
+          // PTS — heaviest
           SizedBox(
             width: 34,
             child: Text(
               '${team.points}',
-              style: valStyle.copyWith(
-                fontWeight: FontWeight.w800,
-                color: highlighted ? ColorTokens.accent : ColorTokens.textPrimary,
-              ),
+              style: numStyle.copyWith(fontWeight: FontWeight.w800),
               textAlign: TextAlign.end,
             ),
           ),
@@ -446,25 +476,28 @@ class _StandingsRow extends StatelessWidget {
 
 // -----------------------------------------------------------------------------
 
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({
+class _ContextCard extends StatelessWidget {
+  const _ContextCard({
     required this.label,
     required this.value,
-    required this.description,
+    required this.note,
     this.valueColor,
-    this.isTextValue = false,
+    this.isCompact = false,
   });
 
-  final String label, value, description;
+  final String label, value, note;
   final Color? valueColor;
-  final bool isTextValue;
+  final bool isCompact;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
       color: ColorTokens.surfaceLow,
-      padding: const EdgeInsets.all(SpacingTokens.lg),
+      padding: const EdgeInsets.fromLTRB(
+        SpacingTokens.lg, SpacingTokens.lg,
+        SpacingTokens.lg, SpacingTokens.md,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -472,18 +505,22 @@ class _SummaryCard extends StatelessWidget {
           const SizedBox(height: SpacingTokens.xs),
           Text(
             value,
-            style: isTextValue
+            style: isCompact
                 ? TypographyTokens.headline.copyWith(
-                    fontSize: 22,
+                    fontSize: 20,
                     color: valueColor ?? ColorTokens.textPrimary,
                   )
                 : TypographyTokens.displayHero.copyWith(
-                    fontSize: 44,
+                    fontSize: 48,
+                    height: 0.9,
                     color: valueColor ?? ColorTokens.accent,
                   ),
           ),
           const SizedBox(height: SpacingTokens.sm),
-          Text(description, style: TypographyTokens.body),
+          Text(
+            note,
+            style: TypographyTokens.body.copyWith(fontSize: 13),
+          ),
         ],
       ),
     );
