@@ -81,6 +81,8 @@ class CoverageValidationService:
         # Probe one competitor profile if teams are available
         teams_probe = next((p for p in probes if p.feed_name == "season_competitors"), None)
         if teams_probe and teams_probe.available:
+            import asyncio
+            await asyncio.sleep(1.2)
             data = await self._client.season_competitors(season_id)
             first_team = (data or {}).get("season_competitors", [{}])[0] if data else {}
             team_id = first_team.get("id", "")
@@ -102,6 +104,8 @@ class CoverageValidationService:
         # Probe one closed match if fixtures are available
         sched_probe = next((p for p in probes if p.feed_name == "season_schedules"), None)
         if sched_probe and sched_probe.available:
+            import asyncio
+            await asyncio.sleep(1.2)
             sched_data = await self._client.season_schedules(season_id)
             closed = [
                 e for e in (sched_data or {}).get("schedules", [])
@@ -137,9 +141,11 @@ class CoverageValidationService:
 
     async def _probe(self, path: str, data_key: str) -> FeedProbeResult:
         try:
+            import asyncio
+            await asyncio.sleep(1.2)
+
             url = f"{self._client._base}/{path}"
             headers = {"x-api-key": self._client._key}
-            await self._client._throttle()
 
             async with httpx.AsyncClient(timeout=15.0) as http:
                 resp = await http.get(url, headers=headers)
