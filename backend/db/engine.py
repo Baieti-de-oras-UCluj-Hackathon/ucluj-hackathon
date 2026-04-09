@@ -23,3 +23,15 @@ async def init_db():
             sr_cols = {r[1] for r in (await conn.execute(text("PRAGMA table_info(sr_standings)"))).fetchall()}
             if "group_name" not in sr_cols:
                 await conn.execute(text("ALTER TABLE sr_standings ADD COLUMN group_name VARCHAR(60) DEFAULT 'Superliga'"))
+
+        if "sr_teams" in tables:
+            st_cols = {r[1] for r in (await conn.execute(text("PRAGMA table_info(sr_teams)"))).fetchall()}
+            if "venue_id" not in st_cols:
+                await conn.execute(text("ALTER TABLE sr_teams ADD COLUMN venue_id VARCHAR(60) DEFAULT ''"))
+            if "logo_url" not in st_cols:
+                await conn.execute(text("ALTER TABLE sr_teams ADD COLUMN logo_url VARCHAR(512) DEFAULT ''"))
+
+        if "sr_fixtures" in tables:
+            sf_cols = {r[1] for r in (await conn.execute(text("PRAGMA table_info(sr_fixtures)"))).fetchall()}
+            if "matchday" not in sf_cols:
+                await conn.execute(text("ALTER TABLE sr_fixtures ADD COLUMN matchday INTEGER"))

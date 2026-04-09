@@ -29,6 +29,26 @@ class SrSeason(Base):
     year: Mapped[str] = mapped_column(String(10), default="")
 
 
+class SrSeasonCoverage(Base):
+    __tablename__ = "sr_season_coverage"
+
+    season_id: Mapped[str] = mapped_column(String(60), primary_key=True)
+    competition_id: Mapped[str] = mapped_column(String(60), default="")
+    max_coverage_level: Mapped[str] = mapped_column(String(40), default="")
+    max_covered_matches: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    scheduled_matches: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    players_statistics: Mapped[bool] = mapped_column(Boolean, default=False)
+    team_statistics: Mapped[bool] = mapped_column(Boolean, default=False)
+    lineups: Mapped[bool] = mapped_column(Boolean, default=False)
+    squads: Mapped[bool] = mapped_column(Boolean, default=False)
+    transfers: Mapped[bool] = mapped_column(Boolean, default=False)
+    missing_players: Mapped[bool] = mapped_column(Boolean, default=False)
+    raw_json: Mapped[str] = mapped_column(Text, default="")
+    synced_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
 class SrTeam(Base):
     __tablename__ = "sr_teams"
 
@@ -38,11 +58,13 @@ class SrTeam(Base):
     abbreviation: Mapped[str] = mapped_column(String(10), default="")
     country: Mapped[str] = mapped_column(String(60), default="")
     country_code: Mapped[str] = mapped_column(String(10), default="")
+    venue_id: Mapped[str] = mapped_column(String(60), default="")
     venue_name: Mapped[str] = mapped_column(String(200), default="")
     venue_city: Mapped[str] = mapped_column(String(120), default="")
     venue_capacity: Mapped[int | None] = mapped_column(Integer, nullable=True)
     manager_name: Mapped[str] = mapped_column(String(120), default="")
     squad_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    logo_url: Mapped[str] = mapped_column(String(512), default="")
 
 
 class SrPlayer(Base):
@@ -74,6 +96,7 @@ class SrFixture(Base):
     away_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     venue_name: Mapped[str] = mapped_column(String(200), default="")
     round_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    matchday: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class SrStanding(Base):
@@ -129,6 +152,22 @@ class SrLineup(Base):
     team_name: Mapped[str] = mapped_column(String(120), default="")
     formation: Mapped[str] = mapped_column(String(20), default="")
     players_json: Mapped[str] = mapped_column(Text, default="[]")
+
+
+class SrTimelineEvent(Base):
+    __tablename__ = "sr_timeline_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    fixture_id: Mapped[str] = mapped_column(String(80), default="", index=True)
+    event_id: Mapped[str] = mapped_column(String(80), default="")
+    event_type: Mapped[str] = mapped_column(String(80), default="")
+    minute: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    team_id: Mapped[str] = mapped_column(String(60), default="")
+    player_name: Mapped[str] = mapped_column(String(200), default="")
+    detail: Mapped[str] = mapped_column(Text, default="")
+    synced_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
 
 
 class SrSyncLog(Base):

@@ -15,6 +15,15 @@ from sportradar.schemas import (
 logger = logging.getLogger(__name__)
 
 
+def _logo_url_from_competitor(comp: dict) -> str:
+    logo = comp.get("logo")
+    if isinstance(logo, str):
+        return logo
+    if isinstance(logo, dict):
+        return str(logo.get("href") or logo.get("url") or "")
+    return ""
+
+
 class TeamSyncService:
 
     def __init__(self, client: SportradarClient):
@@ -76,6 +85,7 @@ class TeamSyncService:
             abbreviation=comp.get("abbreviation", ""),
             country=comp.get("country", ""),
             country_code=comp.get("country_code", ""),
+            logo_url=_logo_url_from_competitor(comp),
             venue=venue,
             manager=manager,
             jerseys=jerseys,

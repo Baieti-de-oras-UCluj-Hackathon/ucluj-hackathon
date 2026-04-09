@@ -27,7 +27,7 @@ class SportradarClient:
         self._base = settings.sportradar_base_url.rstrip("/")
         self._key = settings.sportradar_api_key
         self._delay = settings.sportradar_rate_delay
-        self._timeout = 20.0
+        self._timeout = 15.0
         self._max_retries = 3
 
     async def _throttle(self):
@@ -122,6 +122,14 @@ class SportradarClient:
     async def sport_event_lineups(self, event_id: str) -> dict | None:
         eid = event_id.replace(":", "%3A")
         return await self.get(f"sport_events/{eid}/lineups.json")
+
+    async def sport_event_timeline(self, event_id: str) -> dict | None:
+        eid = event_id.replace(":", "%3A")
+        return await self.get(f"sport_events/{eid}/timeline.json")
+
+    async def daily_schedules(self, date_iso: str) -> dict | None:
+        """date_iso: YYYY-MM-DD — `/schedules/{date}/schedules.json`"""
+        return await self.get(f"schedules/{date_iso}/schedules.json")
 
     async def competitor_schedules(self, competitor_id: str) -> dict | None:
         cid = competitor_id.replace(":", "%3A")

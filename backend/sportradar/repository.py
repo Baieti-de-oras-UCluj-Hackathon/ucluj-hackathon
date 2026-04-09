@@ -14,9 +14,11 @@ from sportradar.db_models import (
     SrMatchStats,
     SrPlayer,
     SrSeason,
+    SrSeasonCoverage,
     SrStanding,
     SrSyncLog,
     SrTeam,
+    SrTimelineEvent,
 )
 from sportradar.schemas import (
     NormalizedCompetitorProfile,
@@ -25,8 +27,10 @@ from sportradar.schemas import (
     NormalizedMatchStats,
     NormalizedStandingsRow,
     NormalizedTeam,
+    NormalizedTimelineEvent,
     SRCompetition,
     SRSeason,
+    SRSeasonCoverage,
 )
 
 logger = logging.getLogger(__name__)
@@ -97,6 +101,53 @@ async def upsert_seasons(session: AsyncSession, seasons: list[SRSeason]):
     await log_sync(session, "seasons", seasons[0].competition_id if seasons else "", "upsert", len(seasons))
 
 
+# ── SEASON COVERAGE ──────────────────────────────────────────────────────────
+
+async def upsert_season_coverage(
+    session: AsyncSession,
+    cov: SRSeasonCoverage,
+    raw: dict | None = None,
+):
+    raw_json = ""
+    if raw is not None:
+        try:
+            raw_json = json.dumps(raw)[:16000]
+        except (TypeError, ValueError):
+            raw_json = ""
+
+    existing = await session.get(SrSeasonCoverage, cov.season_id)
+    if existing:
+        existing.competition_id = cov.competition_id
+        existing.max_coverage_level = cov.max_coverage_level
+        existing.max_covered_matches = cov.max_covered_matches
+        existing.scheduled_matches = cov.scheduled_matches
+        existing.players_statistics = cov.players_statistics
+        existing.team_statistics = cov.team_statistics
+        existing.lineups = cov.lineups
+        existing.squads = cov.squads
+        existing.transfers = cov.transfers
+        existing.missing_players = cov.missing_players
+        existing.raw_json = raw_json
+        existing.synced_at = datetime.now(timezone.utc)
+    else:
+        session.add(SrSeasonCoverage(
+            season_id=cov.season_id,
+            competition_id=cov.competition_id,
+            max_coverage_level=cov.max_coverage_level,
+            max_covered_matches=cov.max_covered_matches,
+            scheduled_matches=cov.scheduled_matches,
+            players_statistics=cov.players_statistics,
+            team_statistics=cov.team_statistics,
+            lineups=cov.lineups,
+            squads=cov.squads,
+            transfers=cov.transfers,
+            missing_players=cov.missing_players,
+            raw_json=raw_json,
+            synced_at=datetime.now(timezone.utc),
+        ))
+    await log_sync(session, "season_coverage", cov.season_id, "upsert", 1)
+
+
 # ── TEAMS ────────────────────────────────────────────────────────────────────
 
 async def upsert_teams(session: AsyncSession, teams: list[NormalizedTeam]):
@@ -108,8 +159,11 @@ async def upsert_teams(session: AsyncSession, teams: list[NormalizedTeam]):
             existing.abbreviation = t.abbreviation
             existing.country = t.country
             existing.country_code = t.country_code
+            existing.venue_id = t.venue_id or existing.venue_id
             existing.venue_name = t.venue_name
             existing.manager_name = t.manager_name
+            if t.logo_url:
+                existing.logo_url = t.logo_url
         else:
             session.add(SrTeam(
                 id=t.sr_id,
@@ -118,8 +172,10 @@ async def upsert_teams(session: AsyncSession, teams: list[NormalizedTeam]):
                 abbreviation=t.abbreviation,
                 country=t.country,
                 country_code=t.country_code,
+                venue_id=t.venue_id,
                 venue_name=t.venue_name,
                 manager_name=t.manager_name,
+                logo_url=t.logo_url,
             ))
     await log_sync(session, "teams", "", "upsert", len(teams))
 
@@ -130,17 +186,20 @@ async def upsert_profile(session: AsyncSession, profile: NormalizedCompetitorPro
     existing = await session.get(SrTeam, profile.sr_id)
     venue = profile.venue
     manager = profile.manager
+    venue_id = venue.id if venue else ""
     vals = dict(
         name=profile.name,
         short_name=profile.short_name,
         abbreviation=profile.abbreviation,
         country=profile.country,
         country_code=profile.country_code,
+        venue_id=venue_id,
         venue_name=venue.name if venue else "",
         venue_city=venue.city_name if venue else "",
         venue_capacity=venue.capacity if venue else None,
         manager_name=manager.name if manager else "",
         squad_size=len(profile.players),
+        logo_url=profile.logo_url,
     )
     if existing:
         for k, v in vals.items():
@@ -193,6 +252,7 @@ async def upsert_fixtures(session: AsyncSession, fixtures: list[NormalizedFixtur
             existing.away_score = f.away_score
             existing.venue_name = f.venue_name
             existing.round_number = f.round_number
+            existing.matchday = f.matchday
         else:
             session.add(SrFixture(
                 id=f.sr_id,
@@ -207,6 +267,7 @@ async def upsert_fixtures(session: AsyncSession, fixtures: list[NormalizedFixtur
                 away_score=f.away_score,
                 venue_name=f.venue_name,
                 round_number=f.round_number,
+                matchday=f.matchday,
             ))
     sid = fixtures[0].season_id if fixtures else ""
     await log_sync(session, "fixtures", sid, "upsert", len(fixtures))
@@ -284,3 +345,26 @@ async def upsert_lineups(session: AsyncSession, fixture_id: str, lineups: list[N
             players_json=json.dumps(players_data),
         ))
     await log_sync(session, "lineups", fixture_id, "replace", len(lineups))
+
+
+# ── TIMELINE ─────────────────────────────────────────────────────────────────
+
+async def upsert_timeline_events(
+    session: AsyncSession,
+    fixture_id: str,
+    events: list[NormalizedTimelineEvent],
+):
+    await session.execute(delete(SrTimelineEvent).where(SrTimelineEvent.fixture_id == fixture_id))
+    now = datetime.now(timezone.utc)
+    for ev in events:
+        session.add(SrTimelineEvent(
+            fixture_id=fixture_id,
+            event_id=ev.event_id,
+            event_type=ev.event_type,
+            minute=ev.minute,
+            team_id=ev.team_id,
+            player_name=ev.player_name,
+            detail=ev.detail,
+            synced_at=now,
+        ))
+    await log_sync(session, "timeline", fixture_id, "replace", len(events))

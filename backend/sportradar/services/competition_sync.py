@@ -92,6 +92,10 @@ class CompetitionSyncService:
 
     async def season_coverage(self, season_id: str) -> SRSeasonCoverage | None:
         data = await self._client.season_info(season_id)
+        return self.parse_season_info(data, season_id)
+
+    @staticmethod
+    def parse_season_info(data: dict | None, season_id: str) -> SRSeasonCoverage | None:
         if not data:
             return None
 

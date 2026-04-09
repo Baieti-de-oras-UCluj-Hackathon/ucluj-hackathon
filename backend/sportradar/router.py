@@ -9,7 +9,8 @@ from clients.sportradar_client import SportradarClient, SportradarError
 from db.engine import async_session
 from sportradar import repository as repo
 from sportradar.db_models import (
-    SrFixture, SrLineup, SrMatchStats, SrPlayer, SrStanding, SrSyncLog, SrTeam,
+    SrFixture, SrLineup, SrMatchStats, SrPlayer, SrSeasonCoverage, SrStanding,
+    SrSyncLog, SrTeam, SrTimelineEvent,
 )
 from sportradar.services.competition_sync import CompetitionSyncService
 from sportradar.services.coverage_validation import CoverageValidationService
@@ -172,6 +173,7 @@ async def sync_season_match_details(
 
     stats_count = 0
     lineups_count = 0
+    timeline_count = 0
     for d in results:
         if d.stats:
             await repo.upsert_match_stats(db, d.fixture_id, d.stats)
@@ -179,11 +181,15 @@ async def sync_season_match_details(
         if d.lineups:
             await repo.upsert_lineups(db, d.fixture_id, d.lineups)
             lineups_count += len(d.lineups)
+        if d.timeline:
+            await repo.upsert_timeline_events(db, d.fixture_id, d.timeline)
+            timeline_count += len(d.timeline)
     await db.commit()
     return {
         "matches_processed": len(results),
         "stats_rows": stats_count,
         "lineup_rows": lineups_count,
+        "timeline_events": timeline_count,
         "persisted": True,
     }
 
@@ -201,11 +207,92 @@ async def sync_fixture_detail(fixture_id: str, db: AsyncSession = Depends(_db)):
         await repo.upsert_match_stats(db, fixture_id, detail.stats)
     if detail.lineups:
         await repo.upsert_lineups(db, fixture_id, detail.lineups)
+    if detail.timeline:
+        await repo.upsert_timeline_events(db, fixture_id, detail.timeline)
     await db.commit()
     return {
         "fixture_id": fixture_id,
         "stats": len(detail.stats),
         "lineups": len(detail.lineups),
+        "timeline": len(detail.timeline),
+        "persisted": True,
+    }
+
+
+@router.post("/full")
+async def sync_full_chain(
+    season_id: str = Query(..., description="e.g. sr:season:131507"),
+    match_detail_limit: int = Query(20, ge=1, le=200),
+    db: AsyncSession = Depends(_db),
+):
+    """Runs discovery → seasons → coverage → teams → profiles → fixtures → standings → match details (limited)."""
+    client = _client()
+    try:
+        comp_svc = CompetitionSyncService(client)
+        fixture_svc = FixtureSyncService(client)
+        team_svc = TeamSyncService(client)
+        stand_svc = StandingsSyncService(client)
+        detail_svc = MatchDetailSyncService(client)
+
+        comp = await comp_svc.discover_superliga()
+        if not comp:
+            raise HTTPException(404, "Romania Superliga not found via discovery")
+
+        await repo.upsert_competition(db, comp)
+        seasons = await comp_svc.list_seasons(comp.id)
+        await repo.upsert_seasons(db, seasons)
+
+        raw_info = await client.season_info(season_id)
+        cov = CompetitionSyncService.parse_season_info(raw_info, season_id)
+        if cov:
+            await repo.upsert_season_coverage(db, cov, raw_info)
+
+        teams = await fixture_svc.extract_teams_from_season(season_id)
+        await repo.upsert_teams(db, teams)
+
+        profiles = await team_svc.sync_all_profiles(season_id)
+        for p in profiles:
+            await repo.upsert_profile(db, p)
+
+        fixtures = await fixture_svc.sync_season_schedule(season_id)
+        await repo.upsert_fixtures(db, fixtures)
+
+        all_groups = await stand_svc.sync_all_standings(season_id)
+        await repo.upsert_all_standings(db, season_id, all_groups)
+
+        closed_ids = [f.sr_id for f in fixtures if f.status == "closed"][:match_detail_limit]
+        results = await detail_svc.sync_season_match_details(season_id, closed_ids)
+        timeline_rows = 0
+        for d in results:
+            if d.stats:
+                await repo.upsert_match_stats(db, d.fixture_id, d.stats)
+            if d.lineups:
+                await repo.upsert_lineups(db, d.fixture_id, d.lineups)
+            if d.timeline:
+                await repo.upsert_timeline_events(db, d.fixture_id, d.timeline)
+                timeline_rows += len(d.timeline)
+
+        await db.commit()
+    except SportradarError as exc:
+        await db.rollback()
+        raise _http_err(exc)
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception:
+        await db.rollback()
+        raise
+
+    return {
+        "competition_id": comp.id,
+        "season_id": season_id,
+        "seasons_listed": len(seasons),
+        "teams": len(teams),
+        "profiles": len(profiles),
+        "fixtures": len(fixtures),
+        "standings_groups": list(all_groups.keys()),
+        "match_details_processed": len(results),
+        "timeline_events": timeline_rows,
         "persisted": True,
     }
 
@@ -213,15 +300,29 @@ async def sync_fixture_detail(fixture_id: str, db: AsyncSession = Depends(_db)):
 # ── COVERAGE / VALIDATION ───────────────────────────────────────────────────
 
 @router.post("/seasons/{season_id}/coverage")
-async def sync_season_coverage(season_id: str):
+async def sync_season_coverage(season_id: str, db: AsyncSession = Depends(_db)):
+    client = _client()
     try:
-        svc = CompetitionSyncService(_client())
-        cov = await svc.season_coverage(season_id)
+        raw = await client.season_info(season_id)
     except SportradarError as exc:
         raise _http_err(exc)
+    cov = CompetitionSyncService.parse_season_info(raw, season_id)
     if not cov:
         raise HTTPException(404, f"Coverage not available for {season_id}")
-    return {"coverage": cov.model_dump()}
+    await repo.upsert_season_coverage(db, cov, raw)
+    await db.commit()
+    return {"coverage": cov.model_dump(), "persisted": True}
+
+
+@router.post("/schedules/{date}/fetch")
+async def fetch_daily_schedules(date: str):
+    """Probe daily schedules feed (`YYYY-MM-DD`). Does not merge into sr_fixtures."""
+    try:
+        data = await _client().daily_schedules(date)
+    except SportradarError as exc:
+        raise _http_err(exc)
+    n = len(data.get("schedules", [])) if data else 0
+    return {"date": date, "schedule_count": n, "available": data is not None}
 
 
 @router.post("/seasons/{season_id}/validate")
@@ -246,7 +347,8 @@ async def read_teams(db: AsyncSession = Depends(_db)):
         "count": len(teams),
         "teams": [
             {"id": t.id, "name": t.name, "short_name": t.short_name,
-             "venue": t.venue_name, "manager": t.manager_name, "squad": t.squad_size}
+             "venue_id": t.venue_id, "venue": t.venue_name, "manager": t.manager_name,
+             "squad": t.squad_size, "logo_url": t.logo_url}
             for t in teams
         ],
     }
@@ -273,7 +375,7 @@ async def read_fixtures(
             {"id": f.id, "scheduled": f.scheduled, "status": f.status,
              "home": f.home_team_name, "away": f.away_team_name,
              "score": f"{f.home_score}-{f.away_score}" if f.home_score is not None else None,
-             "venue": f.venue_name, "round": f.round_number}
+             "venue": f.venue_name, "round": f.round_number, "matchday": f.matchday}
             for f in fixtures
         ],
     }
@@ -333,6 +435,13 @@ async def read_match_detail(fixture_id: str, db: AsyncSession = Depends(_db)):
     )
     lineups = lineup_result.scalars().all()
 
+    tl_result = await db.execute(
+        select(SrTimelineEvent)
+        .where(SrTimelineEvent.fixture_id == fixture_id)
+        .order_by(SrTimelineEvent.id)
+    )
+    timeline = tl_result.scalars().all()
+
     return {
         "fixture_id": fixture_id,
         "stats": [
@@ -346,6 +455,17 @@ async def read_match_detail(fixture_id: str, db: AsyncSession = Depends(_db)):
             {"team": lu.team_name, "formation": lu.formation,
              "players": lu.players_json}
             for lu in lineups
+        ],
+        "timeline": [
+            {
+                "event_id": e.event_id,
+                "type": e.event_type,
+                "minute": e.minute,
+                "team_id": e.team_id,
+                "player": e.player_name,
+                "detail": e.detail,
+            }
+            for e in timeline
         ],
     }
 
@@ -398,6 +518,7 @@ async def sync_status(db: AsyncSession = Depends(_db)):
     for table, model in [
         ("teams", SrTeam), ("fixtures", SrFixture), ("standings", SrStanding),
         ("match_stats", SrMatchStats), ("lineups", SrLineup), ("players", SrPlayer),
+        ("season_coverage", SrSeasonCoverage), ("timeline_events", SrTimelineEvent),
     ]:
         result = await db.execute(select(func.count()).select_from(model))
         counts[table] = result.scalar() or 0
@@ -408,12 +529,16 @@ async def sync_status(db: AsyncSession = Depends(_db)):
         "sync_endpoints": [
             "POST /competitions",
             "POST /seasons",
+            "POST /full?season_id=...&match_detail_limit=N",
+            "POST /seasons/{id}/coverage",
+            "POST /seasons/{id}/validate",
             "POST /seasons/{id}/teams",
             "POST /seasons/{id}/profiles",
             "POST /seasons/{id}/fixtures",
             "POST /seasons/{id}/standings",
             "POST /seasons/{id}/match-details?limit=N",
             "POST /fixtures/{id}/detail",
+            "POST /schedules/{date}/fetch",
         ],
         "read_endpoints": [
             "GET /data/teams",

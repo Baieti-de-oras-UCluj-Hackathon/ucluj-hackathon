@@ -34,6 +34,12 @@ class FixtureSyncService:
             venue = se.get("venue", {})
             context = se.get("sport_event_context", {})
             round_info = context.get("round", {})
+            rnd = round_info.get("number")
+            if rnd is None and isinstance(round_info.get("cup_round_order"), int):
+                rnd = round_info.get("cup_round_order")
+            rnd_int: int | None = None
+            if isinstance(rnd, (int, float)):
+                rnd_int = int(rnd)
 
             fixtures.append(NormalizedFixture(
                 sr_id=se.get("id", ""),
@@ -47,7 +53,8 @@ class FixtureSyncService:
                 home_score=status_block.get("home_score"),
                 away_score=status_block.get("away_score"),
                 venue_name=venue.get("name", ""),
-                round_number=round_info.get("number"),
+                round_number=rnd_int,
+                matchday=rnd_int,
             ))
 
         fixtures.sort(key=lambda f: f.scheduled)
@@ -70,8 +77,10 @@ class FixtureSyncService:
                 abbreviation=raw.get("abbreviation", ""),
                 country=raw.get("country", ""),
                 country_code=raw.get("country_code", ""),
+                venue_id=venue.get("id", ""),
                 venue_name=venue.get("name", ""),
                 manager_name=manager.get("name", ""),
+                logo_url=_logo_href(raw.get("logo")),
             ))
 
         logger.info("Extracted %d teams for season %s", len(teams), season_id)
@@ -83,3 +92,11 @@ def _find_qualifier(competitors: list[dict], qualifier: str) -> dict | None:
         if c.get("qualifier") == qualifier:
             return c
     return None
+
+
+def _logo_href(logo: object) -> str:
+    if isinstance(logo, str):
+        return logo
+    if isinstance(logo, dict):
+        return str(logo.get("href") or logo.get("url") or "")
+    return ""

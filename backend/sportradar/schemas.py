@@ -230,6 +230,7 @@ class NormalizedFixture(BaseModel):
     away_score: int | None = None
     venue_name: str = ""
     round_number: int | None = None
+    matchday: int | None = None
 
 
 class NormalizedTeam(BaseModel):
@@ -239,8 +240,10 @@ class NormalizedTeam(BaseModel):
     abbreviation: str = ""
     country: str = ""
     country_code: str = ""
+    venue_id: str = ""
     venue_name: str = ""
     manager_name: str = ""
+    logo_url: str = ""
 
 
 class NormalizedStandingsRow(BaseModel):
@@ -282,6 +285,7 @@ class NormalizedCompetitorProfile(BaseModel):
     abbreviation: str = ""
     country: str = ""
     country_code: str = ""
+    logo_url: str = ""
     venue: SRVenue | None = None
     manager: SRManager | None = None
     jerseys: list[SRJersey] = Field(default_factory=list)
@@ -326,6 +330,16 @@ class NormalizedLineup(BaseModel):
     players: list[NormalizedLineupPlayer] = Field(default_factory=list)
 
 
+class NormalizedTimelineEvent(BaseModel):
+    fixture_id: str
+    event_id: str = ""
+    event_type: str = ""
+    minute: int | None = None
+    team_id: str = ""
+    player_name: str = ""
+    detail: str = ""
+
+
 class NormalizedMatchDetail(BaseModel):
     fixture_id: str
     status: str = ""
@@ -333,6 +347,7 @@ class NormalizedMatchDetail(BaseModel):
     away_score: int | None = None
     stats: list[NormalizedMatchStats] = Field(default_factory=list)
     lineups: list[NormalizedLineup] = Field(default_factory=list)
+    timeline: list[NormalizedTimelineEvent] = Field(default_factory=list)
 
 
 # =============================================================================

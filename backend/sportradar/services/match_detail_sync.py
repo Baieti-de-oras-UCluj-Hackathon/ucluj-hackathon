@@ -8,6 +8,7 @@ from sportradar.schemas import (
     NormalizedLineupPlayer,
     NormalizedMatchDetail,
     NormalizedMatchStats,
+    NormalizedTimelineEvent,
 )
 
 logger = logging.getLogger(__name__)
@@ -113,6 +114,65 @@ class MatchDetailSyncService:
         logger.info("Lineups synced: %s — %d teams", fixture_id, len(lineups))
         return lineups
 
+    async def sync_match_timeline(self, fixture_id: str) -> list[NormalizedTimelineEvent]:
+        data = await self._client.sport_event_timeline(fixture_id)
+        if not data:
+            return []
+
+        raw_list = data.get("timeline")
+        if raw_list is None:
+            raw_list = data.get("events", [])
+        if not isinstance(raw_list, list):
+            return []
+
+        out: list[NormalizedTimelineEvent] = []
+        for item in raw_list:
+            if not isinstance(item, dict):
+                continue
+
+            mt = item.get("match_time") or item.get("time") or item.get("match_clock")
+            minute: int | None = None
+            if isinstance(mt, (int, float)):
+                minute = int(mt)
+            elif isinstance(mt, str):
+                compact = "".join(c for c in mt if c.isdigit())
+                if compact:
+                    try:
+                        minute = int(compact[:3])
+                    except ValueError:
+                        minute = None
+
+            team_id = item.get("competitor_id") or item.get("team_id") or ""
+            if isinstance(team_id, dict):
+                team_id = team_id.get("id", "")
+
+            player_name = ""
+            pl = item.get("players") or item.get("player")
+            if isinstance(pl, list) and pl:
+                p0 = pl[0]
+                player_name = p0.get("name", "") if isinstance(p0, dict) else str(p0)
+            elif isinstance(pl, dict):
+                player_name = pl.get("name", "")
+
+            detail_txt = item.get("comment") or item.get("description") or item.get("text") or ""
+            if not isinstance(detail_txt, str):
+                detail_txt = str(detail_txt)
+
+            eid = item.get("id") or item.get("uuid") or item.get("event_id") or ""
+
+            out.append(NormalizedTimelineEvent(
+                fixture_id=fixture_id,
+                event_id=str(eid),
+                event_type=str(item.get("type", "")),
+                minute=minute,
+                team_id=str(team_id),
+                player_name=player_name[:200],
+                detail=detail_txt[:2000],
+            ))
+
+        logger.info("Timeline synced: %s — %d events", fixture_id, len(out))
+        return out
+
     async def sync_full_match_detail(self, fixture_id: str) -> NormalizedMatchDetail | None:
         detail = await self.sync_match_summary(fixture_id)
         if not detail:
@@ -120,6 +180,7 @@ class MatchDetailSyncService:
 
         lineups = await self.sync_match_lineups(fixture_id)
         detail.lineups = lineups
+        detail.timeline = await self.sync_match_timeline(fixture_id)
         return detail
 
     async def sync_season_match_details(
