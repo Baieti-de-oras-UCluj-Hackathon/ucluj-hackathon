@@ -10,3 +10,4 @@ ml/*.joblib
 ml/*.cbm
 .mypy_cache/
 .pytest_cache/
+umbraro.db
