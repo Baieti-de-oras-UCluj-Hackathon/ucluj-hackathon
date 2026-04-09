@@ -65,11 +65,20 @@ class MatchDetailSyncService:
         if not data:
             return []
 
+        raw_lineups = data.get("lineups", {})
+        if isinstance(raw_lineups, dict):
+            team_blocks = raw_lineups.get("competitors", [])
+        elif isinstance(raw_lineups, list):
+            team_blocks = raw_lineups
+        else:
+            team_blocks = []
+
         lineups: list[NormalizedLineup] = []
-        for team_block in data.get("lineups", []):
+        for team_block in team_blocks:
             team_id = team_block.get("id", "")
             team_name = team_block.get("name", "")
-            formation = team_block.get("formation", "")
+            raw_formation = team_block.get("formation", "")
+            formation = raw_formation.get("type", "") if isinstance(raw_formation, dict) else str(raw_formation)
 
             players: list[NormalizedLineupPlayer] = []
 

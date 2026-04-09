@@ -7,6 +7,9 @@ from sportradar.schemas import NormalizedStandingsRow
 
 logger = logging.getLogger(__name__)
 
+TARGET_TYPE = "total"
+TARGET_GROUP = "Superliga"
+
 
 class StandingsSyncService:
 
@@ -20,10 +23,24 @@ class StandingsSyncService:
 
         rows: list[NormalizedStandingsRow] = []
 
-        for group in data.get("standings", []):
-            for raw_group in group.get("groups", []):
-                for row in raw_group.get("standings", []):
+        for standing in data.get("standings", []):
+            stype = standing.get("type", "")
+            if stype != TARGET_TYPE:
+                continue
+
+            for group in standing.get("groups", []):
+                gname = group.get("name", "")
+                if TARGET_GROUP.lower() not in gname.lower():
+                    continue
+
+                for row in group.get("standings", []):
                     competitor = row.get("competitor", {})
+                    gf = row.get("goals_for") or 0
+                    ga = row.get("goals_against") or 0
+                    gd = row.get("goal_diff")
+                    if gd is None:
+                        gd = gf - ga
+
                     rows.append(NormalizedStandingsRow(
                         team_id=competitor.get("id", ""),
                         team_name=competitor.get("name", ""),
@@ -32,13 +49,14 @@ class StandingsSyncService:
                         wins=row.get("win"),
                         draws=row.get("draw"),
                         losses=row.get("loss"),
-                        goals_for=row.get("goals_for"),
-                        goals_against=row.get("goals_against"),
-                        goal_diff=row.get("goal_diff"),
+                        goals_for=gf,
+                        goals_against=ga,
+                        goal_diff=gd,
                         points=row.get("points"),
                         form=row.get("form", ""),
                     ))
 
         rows.sort(key=lambda r: r.rank or 99)
-        logger.info("Synced %d standings rows for season %s", len(rows), season_id)
+        logger.info("Synced %d standings rows (type=%s, group=%s) for season %s",
+                     len(rows), TARGET_TYPE, TARGET_GROUP, season_id)
         return rows
