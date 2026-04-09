@@ -7,6 +7,7 @@ from app.config import settings
 from data.loader import load_all_data, load_stadium_map, load_model_bundle
 from db.engine import init_db
 from api.v1.router import v1_router
+from sportradar.router import router as sr_admin_router
 
 
 @asynccontextmanager
@@ -34,3 +35,4 @@ app.add_middleware(
 )
 
 app.include_router(v1_router, prefix="/api/v1")
+app.include_router(sr_admin_router, prefix="/api/v1")

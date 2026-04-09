@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     jwt_secret: str = "CHANGE-ME-IN-PRODUCTION"
     jwt_access_minutes: int = 15
     jwt_refresh_days: int = 7
+    sportradar_api_key: str = ""
+    sportradar_base_url: str = "https://api.sportradar.com/soccer/trial/v4/en"
+    sportradar_rate_delay: float = 1.1
 
     @property
     def cors_origin_list(self) -> list[str]:
