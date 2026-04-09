@@ -14,6 +14,7 @@ class _TeamStanding {
   const _TeamStanding({
     required this.pos,
     required this.shortName,
+    required this.fullName,
     required this.logoAsset,
     required this.played,
     required this.wins,
@@ -25,35 +26,33 @@ class _TeamStanding {
   });
 
   final int pos, played, wins, draws, losses, gd, points;
-  final String shortName, logoAsset;
+  final String shortName, fullName, logoAsset;
   final List<String> form;
 
   bool isTrackedBy(String? teamName) {
     if (teamName == null) return false;
-    final norm = teamName.toLowerCase();
-    return shortName.toLowerCase() == norm ||
-        shortName.toLowerCase().contains(norm) ||
-        norm.contains(shortName.toLowerCase());
+    final t = teamName.toLowerCase();
+    return fullName.toLowerCase() == t || shortName.toLowerCase() == t;
   }
 }
 
 const _kStandings = <_TeamStanding>[
-  _TeamStanding(pos: 1, shortName: 'CFR Cluj', logoAsset: 'assets/teams/cfr_cluj.png', played: 28, wins: 18, draws: 5, losses: 5, gd: 24, points: 59, form: ['W','W','W','D','W']),
-  _TeamStanding(pos: 2, shortName: 'U Craiova', logoAsset: 'assets/teams/universitatea_craiova.png', played: 28, wins: 17, draws: 6, losses: 5, gd: 21, points: 57, form: ['W','D','W','W','L']),
-  _TeamStanding(pos: 3, shortName: 'FCSB', logoAsset: 'assets/teams/fcsb.png', played: 28, wins: 14, draws: 8, losses: 6, gd: 18, points: 50, form: ['W','W','D','W','L']),
-  _TeamStanding(pos: 4, shortName: 'Rapid', logoAsset: 'assets/teams/rapid_bucuresti.png', played: 28, wins: 14, draws: 7, losses: 7, gd: 12, points: 49, form: ['L','W','W','D','W']),
-  _TeamStanding(pos: 5, shortName: 'U Cluj', logoAsset: 'assets/teams/universitatea_cluj.png', played: 28, wins: 13, draws: 8, losses: 7, gd: 10, points: 47, form: ['D','W','L','W','W']),
-  _TeamStanding(pos: 6, shortName: 'Dinamo', logoAsset: 'assets/teams/dinamo_bucuresti.png', played: 28, wins: 12, draws: 9, losses: 7, gd: 8, points: 45, form: ['W','D','D','W','L']),
-  _TeamStanding(pos: 7, shortName: 'Farul', logoAsset: 'assets/teams/farul_constanta.png', played: 28, wins: 11, draws: 9, losses: 8, gd: 5, points: 42, form: ['D','L','W','W','D']),
-  _TeamStanding(pos: 8, shortName: 'Hermannstadt', logoAsset: 'assets/teams/hermannstadt.png', played: 28, wins: 10, draws: 10, losses: 8, gd: 2, points: 40, form: ['L','D','W','D','W']),
-  _TeamStanding(pos: 9, shortName: 'Petrolul', logoAsset: 'assets/teams/petrolul_ploiesti.png', played: 28, wins: 10, draws: 8, losses: 10, gd: -1, points: 38, form: ['W','L','D','L','W']),
-  _TeamStanding(pos: 10, shortName: 'Oțelul Galați', logoAsset: 'assets/teams/otelul_galati.png', played: 28, wins: 9, draws: 9, losses: 10, gd: -3, points: 36, form: ['D','W','L','D','L']),
-  _TeamStanding(pos: 11, shortName: 'FC Botoșani', logoAsset: 'assets/teams/botosani.png', played: 28, wins: 8, draws: 10, losses: 10, gd: -5, points: 34, form: ['L','D','L','W','D']),
-  _TeamStanding(pos: 12, shortName: 'UTA Arad', logoAsset: 'assets/teams/uta_arad.png', played: 28, wins: 8, draws: 8, losses: 12, gd: -8, points: 32, form: ['L','L','W','D','L']),
-  _TeamStanding(pos: 13, shortName: 'FK Csíkszereda', logoAsset: 'assets/teams/csikszereda.png', played: 28, wins: 7, draws: 9, losses: 12, gd: -10, points: 30, form: ['D','L','L','W','D']),
-  _TeamStanding(pos: 14, shortName: 'FC Argeș', logoAsset: 'assets/teams/arges_pitesti.png', played: 28, wins: 6, draws: 8, losses: 14, gd: -16, points: 26, form: ['L','L','D','L','W']),
-  _TeamStanding(pos: 15, shortName: 'Unirea Slobozia', logoAsset: 'assets/teams/unirea_slobozia.png', played: 28, wins: 5, draws: 7, losses: 16, gd: -22, points: 22, form: ['L','D','L','L','L']),
-  _TeamStanding(pos: 16, shortName: 'Metaloglobus', logoAsset: 'assets/teams/metaloglobus.png', played: 28, wins: 4, draws: 7, losses: 17, gd: -25, points: 19, form: ['L','L','L','D','L']),
+  _TeamStanding(pos: 1, shortName: 'CFR Cluj', fullName: 'CFR Cluj', logoAsset: 'assets/teams/cfr_cluj.png', played: 28, wins: 18, draws: 5, losses: 5, gd: 24, points: 59, form: ['W','W','W','D','W']),
+  _TeamStanding(pos: 2, shortName: 'U Craiova', fullName: 'Universitatea Craiova', logoAsset: 'assets/teams/universitatea_craiova.png', played: 28, wins: 17, draws: 6, losses: 5, gd: 21, points: 57, form: ['W','D','W','W','L']),
+  _TeamStanding(pos: 3, shortName: 'FCSB', fullName: 'FCSB', logoAsset: 'assets/teams/fcsb.png', played: 28, wins: 14, draws: 8, losses: 6, gd: 18, points: 50, form: ['W','W','D','W','L']),
+  _TeamStanding(pos: 4, shortName: 'Rapid', fullName: 'Rapid București', logoAsset: 'assets/teams/rapid_bucuresti.png', played: 28, wins: 14, draws: 7, losses: 7, gd: 12, points: 49, form: ['L','W','W','D','W']),
+  _TeamStanding(pos: 5, shortName: 'U Cluj', fullName: 'Universitatea Cluj', logoAsset: 'assets/teams/universitatea_cluj.png', played: 28, wins: 13, draws: 8, losses: 7, gd: 10, points: 47, form: ['D','W','L','W','W']),
+  _TeamStanding(pos: 6, shortName: 'Dinamo', fullName: 'Dinamo București', logoAsset: 'assets/teams/dinamo_bucuresti.png', played: 28, wins: 12, draws: 9, losses: 7, gd: 8, points: 45, form: ['W','D','D','W','L']),
+  _TeamStanding(pos: 7, shortName: 'Farul', fullName: 'Farul Constanța', logoAsset: 'assets/teams/farul_constanta.png', played: 28, wins: 11, draws: 9, losses: 8, gd: 5, points: 42, form: ['D','L','W','W','D']),
+  _TeamStanding(pos: 8, shortName: 'Hermannstadt', fullName: 'Hermannstadt', logoAsset: 'assets/teams/hermannstadt.png', played: 28, wins: 10, draws: 10, losses: 8, gd: 2, points: 40, form: ['L','D','W','D','W']),
+  _TeamStanding(pos: 9, shortName: 'Petrolul', fullName: 'Petrolul Ploiești', logoAsset: 'assets/teams/petrolul_ploiesti.png', played: 28, wins: 10, draws: 8, losses: 10, gd: -1, points: 38, form: ['W','L','D','L','W']),
+  _TeamStanding(pos: 10, shortName: 'Oțelul Galați', fullName: 'Oțelul Galați', logoAsset: 'assets/teams/otelul_galati.png', played: 28, wins: 9, draws: 9, losses: 10, gd: -3, points: 36, form: ['D','W','L','D','L']),
+  _TeamStanding(pos: 11, shortName: 'FC Botoșani', fullName: 'Botoșani', logoAsset: 'assets/teams/botosani.png', played: 28, wins: 8, draws: 10, losses: 10, gd: -5, points: 34, form: ['L','D','L','W','D']),
+  _TeamStanding(pos: 12, shortName: 'UTA Arad', fullName: 'UTA Arad', logoAsset: 'assets/teams/uta_arad.png', played: 28, wins: 8, draws: 8, losses: 12, gd: -8, points: 32, form: ['L','L','W','D','L']),
+  _TeamStanding(pos: 13, shortName: 'FK Csíkszereda', fullName: 'Csíkszereda Miercurea Ciuc', logoAsset: 'assets/teams/csikszereda.png', played: 28, wins: 7, draws: 9, losses: 12, gd: -10, points: 30, form: ['D','L','L','W','D']),
+  _TeamStanding(pos: 14, shortName: 'FC Argeș', fullName: 'Argeș Pitești', logoAsset: 'assets/teams/arges_pitesti.png', played: 28, wins: 6, draws: 8, losses: 14, gd: -16, points: 26, form: ['L','L','D','L','W']),
+  _TeamStanding(pos: 15, shortName: 'Unirea Slobozia', fullName: 'Unirea Slobozia', logoAsset: 'assets/teams/unirea_slobozia.png', played: 28, wins: 5, draws: 7, losses: 16, gd: -22, points: 22, form: ['L','D','L','L','L']),
+  _TeamStanding(pos: 16, shortName: 'Metaloglobus', fullName: 'Metaloglobus București', logoAsset: 'assets/teams/metaloglobus.png', played: 28, wins: 4, draws: 7, losses: 17, gd: -25, points: 19, form: ['L','L','L','D','L']),
 ];
 
 // =============================================================================
