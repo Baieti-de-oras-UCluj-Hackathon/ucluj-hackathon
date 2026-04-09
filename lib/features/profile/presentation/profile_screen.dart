@@ -27,7 +27,7 @@ class _Demo {
   static const String tacticalStyle = 'Structured Pressure';
   static const String formationPref = '4-2-3-1';
   static const String league = 'Romanian Superliga';
-  static const String season = '2024–2025';
+  static const String season = '2025–2026';
   static const String lastAnalyzed = 'vs CFR Cluj';
   static const String exportFormat = 'PDF';
   static const String language = 'English';

@@ -112,7 +112,7 @@ class _StandingsScreenState extends State<StandingsScreen> {
           ),
           const SizedBox(height: SpacingTokens.md),
           Text(
-            'SUPERLIGA ROMANIA  ·  2024/25  ·  MW 28',
+            'SUPERLIGA ROMANIA  ·  2025/26  ·  MW 28',
             style: TypographyTokens.sectionLabel.copyWith(
               color: ColorTokens.accent,
               letterSpacing: 2.0,
