@@ -28,7 +28,13 @@ class _TeamStanding {
   final String shortName, logoAsset;
   final List<String> form;
 
-  bool get isTracked => shortName == 'FCSB';
+  bool isTrackedBy(String? teamName) {
+    if (teamName == null) return false;
+    final norm = teamName.toLowerCase();
+    return shortName.toLowerCase() == norm ||
+        shortName.toLowerCase().contains(norm) ||
+        norm.contains(shortName.toLowerCase());
+  }
 }
 
 const _kStandings = <_TeamStanding>[
@@ -58,11 +64,13 @@ class StandingsScreen extends StatefulWidget {
   const StandingsScreen({
     required this.onTabSelected,
     this.onProfileTap,
+    this.trackedTeam,
     super.key,
   });
 
   final ValueChanged<AppTab> onTabSelected;
   final VoidCallback? onProfileTap;
+  final String? trackedTeam;
 
   @override
   State<StandingsScreen> createState() => _StandingsScreenState();
@@ -83,7 +91,13 @@ class _StandingsScreenState extends State<StandingsScreen> {
     }
   }
 
-  _TeamStanding get _tracked => _kStandings.firstWhere((t) => t.isTracked);
+  String? get _team => widget.trackedTeam;
+
+  _TeamStanding get _tracked =>
+      _kStandings.firstWhere(
+        (t) => t.isTrackedBy(_team),
+        orElse: () => _kStandings.first,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -138,7 +152,8 @@ class _StandingsScreenState extends State<StandingsScreen> {
           // ── Table ───────────────────────────────────────────────
           const _TableHeader(),
 
-          for (final team in _filtered) _StandingsRow(team: team),
+          for (final team in _filtered)
+            _StandingsRow(team: team, trackedTeam: _team),
 
           const SizedBox(height: 36),
 
@@ -391,12 +406,13 @@ class _TableHeader extends StatelessWidget {
 // -----------------------------------------------------------------------------
 
 class _StandingsRow extends StatelessWidget {
-  const _StandingsRow({required this.team});
+  const _StandingsRow({required this.team, this.trackedTeam});
   final _TeamStanding team;
+  final String? trackedTeam;
 
   @override
   Widget build(BuildContext context) {
-    final hl = team.isTracked;
+    final hl = team.isTrackedBy(trackedTeam);
 
     final bg = hl ? ColorTokens.surfaceHigh : Colors.transparent;
     final primary = hl ? ColorTokens.accent : ColorTokens.textPrimary;

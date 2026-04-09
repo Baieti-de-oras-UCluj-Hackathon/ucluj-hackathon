@@ -46,6 +46,7 @@ class _AppShellState extends State<AppShell> {
         return StandingsScreen(
           onTabSelected: _onTabSelected,
           onProfileTap: _openProfile,
+          trackedTeam: widget.authState.user?.teamName,
         );
       case AppTab.chat:
         return ChatScreen(
