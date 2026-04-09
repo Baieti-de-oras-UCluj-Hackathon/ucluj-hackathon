@@ -344,6 +344,7 @@ class FeedProbeResult(BaseModel):
     status_code: int | None = None
     record_count: int | None = None
     error: str = ""
+    umbraro_relevance: str = ""
 
 
 class CoverageReport(BaseModel):
