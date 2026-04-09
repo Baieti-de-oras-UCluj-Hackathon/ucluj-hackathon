@@ -11,16 +11,19 @@ import '../../chat/presentation/chat_screen.dart';
 class StandingsScreen extends StatelessWidget {
   const StandingsScreen({
     required this.onTabSelected,
+    this.onProfileTap,
     super.key,
   });
 
   final ValueChanged<AppTab> onTabSelected;
+  final VoidCallback? onProfileTap;
 
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
       currentTab: AppTab.standings,
       onTabSelected: onTabSelected,
+      onProfileTap: onProfileTap,
       body: ListView(
         children: [
           Text('COMPETITION / LIGA 1', style: TypographyTokens.sectionLabel),

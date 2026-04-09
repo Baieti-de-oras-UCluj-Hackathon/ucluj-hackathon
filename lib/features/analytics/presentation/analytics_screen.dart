@@ -11,16 +11,19 @@ import '../../team/presentation/team_screen.dart';
 class AnalyticsScreen extends StatelessWidget {
   const AnalyticsScreen({
     required this.onTabSelected,
+    this.onProfileTap,
     super.key,
   });
 
   final ValueChanged<AppTab> onTabSelected;
+  final VoidCallback? onProfileTap;
 
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
       currentTab: AppTab.analytics,
       onTabSelected: onTabSelected,
+      onProfileTap: onProfileTap,
       trailing: Container(
         width: 32,
         height: 32,

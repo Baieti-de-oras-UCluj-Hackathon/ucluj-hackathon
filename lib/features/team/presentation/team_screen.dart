@@ -11,16 +11,19 @@ import '../../match_intelligence/presentation/match_intelligence_screen.dart';
 class TeamScreen extends StatelessWidget {
   const TeamScreen({
     required this.onTabSelected,
+    this.onProfileTap,
     super.key,
   });
 
   final ValueChanged<AppTab> onTabSelected;
+  final VoidCallback? onProfileTap;
 
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
       currentTab: AppTab.team,
       onTabSelected: onTabSelected,
+      onProfileTap: onProfileTap,
       body: ListView(
         children: [
           Text('SEASON STATUS', style: TypographyTokens.sectionLabel),

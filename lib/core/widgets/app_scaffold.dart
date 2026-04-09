@@ -9,6 +9,7 @@ class AppScaffold extends StatelessWidget {
     required this.currentTab,
     required this.body,
     required this.onTabSelected,
+    this.onProfileTap,
     this.trailing,
     super.key,
   });
@@ -16,6 +17,7 @@ class AppScaffold extends StatelessWidget {
   final AppTab currentTab;
   final Widget body;
   final ValueChanged<AppTab> onTabSelected;
+  final VoidCallback? onProfileTap;
   final Widget? trailing;
 
   @override
@@ -55,17 +57,20 @@ class AppScaffold extends StatelessWidget {
                   ),
                   const Spacer(),
                   trailing ??
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: ColorTokens.surfaceHigh,
-                          border: Border.all(color: ColorTokens.divider),
-                        ),
-                        child: const Icon(
-                          Icons.person_outline,
-                          size: 16,
-                          color: ColorTokens.textPrimary,
+                      GestureDetector(
+                        onTap: onProfileTap,
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: ColorTokens.surfaceHigh,
+                            border: Border.all(color: ColorTokens.divider),
+                          ),
+                          child: const Icon(
+                            Icons.person_outline,
+                            size: 16,
+                            color: ColorTokens.textPrimary,
+                          ),
                         ),
                       ),
                 ],

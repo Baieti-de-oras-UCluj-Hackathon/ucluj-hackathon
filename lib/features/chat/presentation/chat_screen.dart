@@ -11,16 +11,19 @@ import '../../match_intelligence/presentation/match_intelligence_screen.dart';
 class ChatScreen extends StatelessWidget {
   const ChatScreen({
     required this.onTabSelected,
+    this.onProfileTap,
     super.key,
   });
 
   final ValueChanged<AppTab> onTabSelected;
+  final VoidCallback? onProfileTap;
 
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
       currentTab: AppTab.chat,
       onTabSelected: onTabSelected,
+      onProfileTap: onProfileTap,
       body: ListView(
         children: [
           Text(

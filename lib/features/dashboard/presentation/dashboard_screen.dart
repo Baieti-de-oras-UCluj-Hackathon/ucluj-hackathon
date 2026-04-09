@@ -12,16 +12,19 @@ import '../../match_intelligence/presentation/match_intelligence_screen.dart';
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({
     required this.onTabSelected,
+    this.onProfileTap,
     super.key,
   });
 
   final ValueChanged<AppTab> onTabSelected;
+  final VoidCallback? onProfileTap;
 
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
       currentTab: AppTab.dashboard,
       onTabSelected: onTabSelected,
+      onProfileTap: onProfileTap,
       body: ListView(
         children: [
           Center(

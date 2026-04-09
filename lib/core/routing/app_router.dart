@@ -1,31 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../../core/state/auth_state.dart';
 import '../../features/analytics/presentation/analytics_screen.dart';
 import '../../features/chat/presentation/chat_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/standings/presentation/standings_screen.dart';
 import '../../features/team/presentation/team_screen.dart';
 import '../widgets/app_bottom_nav.dart';
 
-class AppRoutes {
-  const AppRoutes._();
-
-  static const String root = '/';
-}
-
-class AppRouter {
-  const AppRouter._();
-
-  static Route<dynamic> onGenerateRoute(RouteSettings settings) {
-    return MaterialPageRoute<void>(
-      settings: settings,
-      builder: (_) => const AppShell(),
-    );
-  }
-}
-
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({required this.authState, super.key});
+
+  final AuthState authState;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -39,19 +26,42 @@ class _AppShellState extends State<AppShell> {
     setState(() => _currentTab = tab);
   }
 
+  void _openProfile() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ProfileScreen(authState: widget.authState),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     switch (_currentTab) {
       case AppTab.dashboard:
-        return DashboardScreen(onTabSelected: _onTabSelected);
+        return DashboardScreen(
+          onTabSelected: _onTabSelected,
+          onProfileTap: _openProfile,
+        );
       case AppTab.standings:
-        return StandingsScreen(onTabSelected: _onTabSelected);
+        return StandingsScreen(
+          onTabSelected: _onTabSelected,
+          onProfileTap: _openProfile,
+        );
       case AppTab.chat:
-        return ChatScreen(onTabSelected: _onTabSelected);
+        return ChatScreen(
+          onTabSelected: _onTabSelected,
+          onProfileTap: _openProfile,
+        );
       case AppTab.analytics:
-        return AnalyticsScreen(onTabSelected: _onTabSelected);
+        return AnalyticsScreen(
+          onTabSelected: _onTabSelected,
+          onProfileTap: _openProfile,
+        );
       case AppTab.team:
-        return TeamScreen(onTabSelected: _onTabSelected);
+        return TeamScreen(
+          onTabSelected: _onTabSelected,
+          onProfileTap: _openProfile,
+        );
     }
   }
 }
