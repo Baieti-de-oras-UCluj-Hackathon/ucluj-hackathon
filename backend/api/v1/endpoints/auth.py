@@ -12,6 +12,7 @@ from core.security import get_current_user
 from db.engine import async_session as session_factory
 from db.models import User
 from services.auth_service import AuthService
+from services.reference_service import get_supported_teams
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -24,8 +25,14 @@ async def _get_db():
 @router.post("/register", response_model=UserResponse, status_code=201)
 async def register(body: RegisterRequest, db: AsyncSession = Depends(_get_db)):
     svc = AuthService(db)
-    user = await svc.register(body.email, body.password)
-    return UserResponse(id=user.id, email=user.email, role=user.role, is_active=user.is_active)
+    user = await svc.register(body.email, body.password, body.team_name)
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        role=user.role,
+        team_name=user.team_name,
+        is_active=user.is_active,
+    )
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -44,4 +51,15 @@ async def refresh(body: RefreshRequest, db: AsyncSession = Depends(_get_db)):
 
 @router.get("/me", response_model=UserResponse)
 async def me(user: User = Depends(get_current_user)):
-    return UserResponse(id=user.id, email=user.email, role=user.role, is_active=user.is_active)
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        role=user.role,
+        team_name=user.team_name,
+        is_active=user.is_active,
+    )
+
+
+@router.get("/teams", response_model=list[str])
+async def list_teams():
+    return sorted(get_supported_teams())

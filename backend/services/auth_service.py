@@ -12,6 +12,7 @@ from core.security import (
     create_refresh_token,
     decode_token,
 )
+from services.reference_service import get_supported_teams
 
 
 class AuthService:
@@ -19,12 +20,17 @@ class AuthService:
     def __init__(self, session: AsyncSession):
         self._session = session
 
-    async def register(self, email: str, password: str) -> User:
+    async def register(self, email: str, password: str, team_name: str) -> User:
         result = await self._session.execute(select(User).where(User.email == email))
         if result.scalar_one_or_none() is not None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
-        user = User(email=email, password_hash=hash_password(password))
+        clean_team_name = team_name.strip()
+        supported_teams = get_supported_teams()
+        if supported_teams and clean_team_name not in supported_teams:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid team selection")
+
+        user = User(email=email, password_hash=hash_password(password), team_name=clean_team_name)
         self._session.add(user)
         await self._session.commit()
         await self._session.refresh(user)

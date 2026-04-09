@@ -1,4 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy import text
 
 from app.config import settings
 
@@ -11,3 +12,7 @@ async def init_db():
     from db.models import Base
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        result = await conn.execute(text("PRAGMA table_info(users)"))
+        columns = {row[1] for row in result.fetchall()}
+        if "team_name" not in columns:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN team_name VARCHAR(120)"))

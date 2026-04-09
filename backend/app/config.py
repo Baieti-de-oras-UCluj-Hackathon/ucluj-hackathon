@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     stadium_map_path: str = "../data/reference/team_stadium_map.csv"
     model_bundle_path: str = "ml/umbraro_catboost_bundle.joblib"
     tracked_team: str = "UMBRARO"
-    cors_origins: str = "http://localhost:3000,http://localhost:8080"
+    cors_origins: str = "http://localhost:3000,http://localhost:8080,http://localhost:5555"
     database_url: str = "sqlite+aiosqlite:///./umbraro.db"
     jwt_secret: str = "CHANGE-ME-IN-PRODUCTION"
     jwt_access_minutes: int = 15
