@@ -17,3 +17,6 @@ build/
 *.tmp
 Thumbs.db
 Desktop.ini
+__pycache__/
+.ipynb_checkpoints/
+sportsradar_key.txt
