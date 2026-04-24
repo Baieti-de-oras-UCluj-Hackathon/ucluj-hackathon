@@ -124,11 +124,15 @@ Future<List<_TeamStanding>> _fetchRegular() async {
 Future<({List<_TeamStanding> championship, List<_TeamStanding> relegation})> _fetchGroups() async {
   final uri = Uri.parse('$_kBaseUrl/standings?season_id=$_kSeasonId&phase=groups');
   final resp = await http.get(uri);
-  if (resp.statusCode != 200) return (championship: [], relegation: []);
+  if (resp.statusCode != 200) {
+    return (championship: <_TeamStanding>[], relegation: <_TeamStanding>[]);
+  }
   final data = jsonDecode(resp.body) as Map<String, dynamic>;
 
-  final crRaw = (data['championship_round'] as Map?)?.get('standings') as List? ?? [];
-  final rrRaw = (data['relegation_round'] as Map?)?.get('standings') as List? ?? [];
+  final crRaw =
+      (data['championship_round'] as Map<String, dynamic>?)?['standings'] as List? ?? [];
+  final rrRaw =
+      (data['relegation_round'] as Map<String, dynamic>?)?['standings'] as List? ?? [];
 
   return (
     championship: crRaw.asMap().entries.map((e) =>

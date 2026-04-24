@@ -5,13 +5,13 @@ import '../services/api_client.dart';
 import '../services/auth_service.dart';
 
 class AuthState extends ChangeNotifier {
-  AuthState({ApiClient? apiClient})
-      : api = apiClient ?? ApiClient(),
-        _authService = AuthService(apiClient ?? ApiClient()) {
+  AuthState({ApiClient? apiClient}) {
+    api = apiClient ?? ApiClient();
+    _authService = AuthService(api);
     _tryRestoreSession();
   }
 
-  final ApiClient api;
+  late final ApiClient api;
   late final AuthService _authService;
 
   AuthUser? _user;
@@ -37,9 +37,11 @@ class AuthState extends ChangeNotifier {
       }
     } catch (_) {
       api.clearTokens();
+      _user = null;
+    } finally {
+      _loading = false;
+      notifyListeners();
     }
-    _loading = false;
-    notifyListeners();
   }
 
   Future<bool> login({required String email, required String password}) async {
@@ -50,14 +52,18 @@ class AuthState extends ChangeNotifier {
       await _authService.login(email: email, password: password);
       _user = await _authService.me();
       await _persistTokens();
-      _loading = false;
-      notifyListeners();
       return true;
     } on ApiException catch (e) {
       _error = e.message;
+      _user = null;
+      return false;
+    } catch (_) {
+      _error = 'Could not complete login. Check backend connection.';
+      _user = null;
+      return false;
+    } finally {
       _loading = false;
       notifyListeners();
-      return false;
     }
   }
 
@@ -78,9 +84,17 @@ class AuthState extends ChangeNotifier {
       return await login(email: email, password: password);
     } on ApiException catch (e) {
       _error = e.message;
-      _loading = false;
-      notifyListeners();
+      _user = null;
       return false;
+    } catch (_) {
+      _error = 'Could not complete registration. Check backend connection.';
+      _user = null;
+      return false;
+    } finally {
+      if (_loading) {
+        _loading = false;
+        notifyListeners();
+      }
     }
   }
 
