@@ -1,6 +1,10 @@
 ################################################################################
-#  deploy_web.ps1  –  one-click: start backend + tunnel + build + firebase deploy
-#  Run from anywhere:  powershell -ExecutionPolicy Bypass -File deploy_web.ps1
+#  deploy_web.ps1
+#  First run  : full Flutter build + Firebase deploy
+#  After that : only config.json is updated (3 seconds, no rebuild)
+#
+#  Usage:
+#    powershell -ExecutionPolicy Bypass -File scripts\deploy_web.ps1
 ################################################################################
 
 $ErrorActionPreference = "Continue"
@@ -9,7 +13,6 @@ $backend = Join-Path $root "backend"
 $cf      = "$env:TEMP\cloudflared.exe"
 $cfLog   = "$env:TEMP\cf_tunnel.log"
 
-# ── helpers ──────────────────────────────────────────────────────────────────
 function Write-Step($msg) { Write-Host "`n==> $msg" -ForegroundColor Cyan }
 function Fail($msg)       { Write-Host "ERROR: $msg" -ForegroundColor Red; exit 1 }
 
@@ -26,9 +29,6 @@ Write-Host "  OK: $(&$cf --version)"
 # ── 2. Kill stale processes ──────────────────────────────────────────────────
 Write-Step "Stopping old processes..."
 Get-Process -Name "cloudflared" -ErrorAction SilentlyContinue | Stop-Process -Force
-Get-Process -Name "python" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -like "*uvicorn*" } |
-    Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
 
 # ── 3. Start backend ─────────────────────────────────────────────────────────
@@ -60,28 +60,36 @@ for ($i = 0; $i -lt 20; $i++) {
     Start-Sleep -Seconds 1
     if (Test-Path $cfLog) {
         $match = Select-String -Path $cfLog -Pattern "https://[a-z0-9\-]+\.trycloudflare\.com"
-        if ($match) {
-            $tunnelUrl = $match.Matches[0].Value
-            break
-        }
+        if ($match) { $tunnelUrl = $match.Matches[0].Value; break }
     }
 }
-if (-not $tunnelUrl) { Fail "Could not get tunnel URL from log." }
+if (-not $tunnelUrl) { Fail "Could not get tunnel URL." }
 Write-Host "  Tunnel: $tunnelUrl"
 
-# ── 5. Flutter web build ─────────────────────────────────────────────────────
-Write-Step "Building Flutter web..."
-Set-Location $root
 $apiUrl = "$tunnelUrl/api/v1"
-$buildOut = flutter build web `
-    "--dart-define=API_BASE_URL=$apiUrl" `
-    "--dart-define=APP_ENV=production" `
-    "--dart-define=USE_FIREBASE_AUTH=false" 2>&1
 
-$buildOut | Where-Object { $_ -match "Built|error" } | ForEach-Object { Write-Host "  $_" }
-if ($LASTEXITCODE -ne 0) { Fail "Flutter build failed." }
+# ── 5. Check if build/web exists (skip rebuild if already built) ─────────────
+Set-Location $root
+$needsBuild = -not (Test-Path "build\web\main.dart.js")
 
-# ── 6. Firebase deploy ───────────────────────────────────────────────────────
+if ($needsBuild) {
+    Write-Step "Building Flutter web (first time, ~40s)..."
+    $buildOut = flutter build web `
+        "--dart-define=APP_ENV=production" `
+        "--dart-define=USE_FIREBASE_AUTH=false" 2>&1
+    $buildOut | Where-Object { $_ -match "Built|error" } | ForEach-Object { Write-Host "  $_" }
+    if ($LASTEXITCODE -ne 0) { Fail "Flutter build failed." }
+} else {
+    Write-Host "`n==> Skipping Flutter rebuild (build already exists)"
+}
+
+# ── 6. Write config.json with current tunnel URL (no rebuild needed) ─────────
+Write-Step "Writing config.json..."
+$config = @{ apiBaseUrl = $apiUrl } | ConvertTo-Json
+$config | Out-File -FilePath "build\web\config.json" -Encoding utf8
+Write-Host "  API URL: $apiUrl"
+
+# ── 7. Firebase deploy ───────────────────────────────────────────────────────
 Write-Step "Deploying to Firebase..."
 $depOut = firebase deploy --only hosting 2>&1
 $depOut | Where-Object { $_ -match "complete|Error|Hosting URL|release" } | ForEach-Object { Write-Host "  $_" }
@@ -95,9 +103,9 @@ Write-Host "  Backend: http://127.0.0.1:8000" -ForegroundColor Green
 Write-Host "  Tunnel:  $tunnelUrl" -ForegroundColor Green
 Write-Host "============================================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "Keep this window open to maintain the tunnel." -ForegroundColor Yellow
-Read-Host "Press ENTER to stop the tunnel and backend"
+Write-Host "Tunnel activ. Tine fereastra deschisa." -ForegroundColor Yellow
+Write-Host "Daca tunelul expira, ruleaza scriptul din nou (rebuild: NU)." -ForegroundColor Yellow
+Read-Host "`nApasa ENTER pentru a opri"
 
-# cleanup
 Get-Process -Name "cloudflared" -ErrorAction SilentlyContinue | Stop-Process -Force
 $backendProc | Stop-Process -Force -ErrorAction SilentlyContinue
