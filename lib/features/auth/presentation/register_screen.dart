@@ -26,36 +26,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
 
-  List<String> _teams = [];
-  String? _selectedTeam;
-  bool _loadingTeams = true;
+  String? _selectedTeam = 'Universitatea Cluj';
+  bool _loadingTeams = false;
   bool _submitting = false;
   String? _localError;
 
   @override
   void initState() {
     super.initState();
-    _loadTeams();
   }
 
-  Future<void> _loadTeams() async {
-    try {
-      final teams = await widget.authState.authService.fetchTeams();
-      if (mounted) {
-        setState(() {
-          _teams = teams;
-          _loadingTeams = false;
-        });
-      }
-    } on ApiException catch (e) {
-      if (mounted) {
-        setState(() {
-          _localError = 'Could not load teams: ${e.message}';
-          _loadingTeams = false;
-        });
-      }
-    }
-  }
+
 
   @override
   void dispose() {
@@ -86,10 +67,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       setState(() => _localError = 'Passwords do not match');
       return;
     }
-    if (_selectedTeam == null) {
-      setState(() => _localError = 'Please select a team');
-      return;
-    }
+
 
     setState(() {
       _submitting = true;
@@ -127,15 +105,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Center(
-                    child: SizedBox(
-                      height: 120,
-                      child: Image.asset(
-                        'assets/branding/logo_full.png',
-                        fit: BoxFit.contain,
-                      ),
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          height: 100,
+                          width: 100,
+                          child: Image.asset(
+                            'assets/teams/universitatea_cluj.png',
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                        const SizedBox(height: SpacingTokens.sm),
+                        Text(
+                          'U CLUJ',
+                          style: TypographyTokens.headline.copyWith(
+                            color: ColorTokens.accent,
+                            letterSpacing: 4,
+                            fontSize: 28,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: SpacingTokens.md),
+                  const SizedBox(height: SpacingTokens.sm),
                   Text(
                     'CREATE YOUR ACCOUNT',
                     textAlign: TextAlign.center,
@@ -149,8 +141,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   _buildField(_passCtrl, 'PASSWORD', true),
                   const SizedBox(height: SpacingTokens.md),
                   _buildField(_confirmCtrl, 'CONFIRM PASSWORD', true),
-                  const SizedBox(height: SpacingTokens.md),
-                  _buildTeamDropdown(),
+
                   const SizedBox(height: SpacingTokens.xl),
                   if (displayError != null) ...[
                     Container(
@@ -219,64 +210,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildTeamDropdown() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('SELECT TEAM', style: TypographyTokens.sectionLabel),
-        const SizedBox(height: SpacingTokens.xs),
-        Container(
-          decoration: BoxDecoration(
-            color: ColorTokens.surfaceLow,
-            border: Border.all(
-              color: _selectedTeam != null
-                  ? ColorTokens.accent
-                  : ColorTokens.divider,
-            ),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: SpacingTokens.md),
-          child: _loadingTeams
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: SpacingTokens.sm),
-                  child: SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: ColorTokens.accent,
-                    ),
-                  ),
-                )
-              : DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    value: _selectedTeam,
-                    hint: Text(
-                      'Choose your team',
-                      style: TypographyTokens.body
-                          .copyWith(color: ColorTokens.textMuted),
-                    ),
-                    dropdownColor: ColorTokens.surfaceLow,
-                    icon: const Icon(
-                      Icons.keyboard_arrow_down,
-                      color: ColorTokens.accent,
-                    ),
-                    style: TypographyTokens.body,
-                    items: _teams.map((team) {
-                      return DropdownMenuItem<String>(
-                        value: team,
-                        child: Text(team),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() => _selectedTeam = value);
-                    },
-                  ),
-                ),
-        ),
-      ],
-    );
-  }
+
 
   Widget _buildField(
     TextEditingController controller,

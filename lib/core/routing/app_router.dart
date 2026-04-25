@@ -39,6 +39,7 @@ class _AppShellState extends State<AppShell> {
     switch (_currentTab) {
       case AppTab.dashboard:
         return DashboardScreen(
+          authState: widget.authState,
           onTabSelected: _onTabSelected,
           onProfileTap: _openProfile,
         );

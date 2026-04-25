@@ -54,6 +54,14 @@ Write-Host ""
 Write-Host "URL Backend: $apiUrl" -ForegroundColor Green
 Write-Host ""
 
+# Update web/config.json so AppConfig.load() uses the correct URL
+$configPath = Join-Path $rootDir "web\config.json"
+if (Test-Path $configPath) {
+    $configJson = @{ apiBaseUrl = $apiUrl } | ConvertTo-Json
+    $configJson | Out-File -FilePath $configPath -Encoding utf8
+    Write-Host "Updated web/config.json with tunnel URL." -ForegroundColor Gray
+}
+
 Write-Host "=== BUILD FLUTTER WEB ===" -ForegroundColor Cyan
 Set-Location $rootDir
 flutter build web `

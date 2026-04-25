@@ -1,23 +1,25 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/primitives/app_button.dart';
+import '../../../core/state/auth_state.dart';
+import '../../../core/services/api_client.dart' show ApiException;
 import '../../../core/theme/color_tokens.dart';
 import '../../../core/theme/spacing_tokens.dart';
 import '../../../core/theme/typography_tokens.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/app_scaffold.dart';
-import '../../../data/models/dashboard_data.dart';
-import '../../../data/repositories/dashboard_repository.dart';
-import '../../match_intelligence/presentation/match_intelligence_screen.dart';
-import '../../team/presentation/match_preview_screen.dart';
+import '../../../data/models/week_fixture.dart';
+import '../../../data/repositories/week_repository.dart';
+import 'match_stats_sheet.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({
+    required this.authState,
     required this.onTabSelected,
     this.onProfileTap,
     super.key,
   });
 
+  final AuthState authState;
   final ValueChanged<AppTab> onTabSelected;
   final VoidCallback? onProfileTap;
 
@@ -26,42 +28,43 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  final _repo = DashboardRepository();
-
+  late final WeekRepository _repo;
   bool _loading = true;
   String? _error;
-  DashboardData? _data;
+  List<WeekFixture> _fixtures = [];
 
-  static const String _myTeam = 'U Cluj';
+  static const String _myTeam = 'Universitatea Cluj';
 
   @override
   void initState() {
     super.initState();
+    _repo = WeekRepository(apiClient: widget.authState.api);
     _load();
   }
 
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() { _loading = true; _error = null; });
     try {
-      final data = await _repo.fetchDashboard();
-      if (mounted) setState(() { _data = data; _loading = false; });
+      final data = await _repo.fetchWeekFixtures();
+      if (mounted) setState(() { _fixtures = data; _loading = false; });
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+      if (mounted) {
+        if (e is ApiException && e.statusCode == 401) {
+          // Auto logout on 401
+          widget.authState.logout();
+          return;
+        }
+        setState(() { _error = e.toString(); _loading = false; });
+      }
     }
   }
 
-  void _openMatchPreview(DashboardFixture fixture) {
-    final opponent = fixture.opponentOf(_myTeam);
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => MatchPreviewScreen(
-          opponentName: opponent,
-          myTeam: _myTeam,
-        ),
-      ),
+  void _openStats(WeekFixture f) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => MatchStatsSheet(fixture: f, myTeam: _myTeam),
     );
   }
 
@@ -74,230 +77,240 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: ColorTokens.accent))
           : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(SpacingTokens.xl),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('Could not load dashboard',
-                            style: TypographyTokens.headline
-                                .copyWith(color: ColorTokens.negative)),
-                        const SizedBox(height: SpacingTokens.sm),
-                        Text(_error!,
-                            style: TypographyTokens.body
-                                .copyWith(color: ColorTokens.textMuted),
-                            textAlign: TextAlign.center),
-                        const SizedBox(height: SpacingTokens.lg),
-                        TextButton(
-                          onPressed: _load,
-                          child: Text('RETRY',
-                              style: TypographyTokens.sectionLabel
-                                  .copyWith(color: ColorTokens.accent)),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : ListView(
-              children: [
-                _buildHero(),
-                const SizedBox(height: SpacingTokens.xl),
-                if (_data?.keyDrivers.isNotEmpty == true) ...[
-                  Text('KEY DRIVERS', style: TypographyTokens.sectionLabel),
-                  const SizedBox(height: SpacingTokens.sm),
-                  const Divider(height: 1, color: ColorTokens.divider),
-                  const SizedBox(height: SpacingTokens.md),
-                  ..._data!.keyDrivers.map((d) => Padding(
-                        padding: const EdgeInsets.only(bottom: SpacingTokens.md),
-                        child: _DriverRow(
-                          label: d.label.toUpperCase(),
-                          delta: d.direction == 'positive' ? '+' : '-',
-                          importance: d.importance,
-                        ),
-                      )),
-                ],
-                if (_data?.recentFixtures.isNotEmpty == true) ...[
-                  const SizedBox(height: SpacingTokens.md),
-                  Text('RECENT RESULTS', style: TypographyTokens.sectionLabel),
-                  const SizedBox(height: SpacingTokens.sm),
-                  ..._data!.recentFixtures.map(_buildRecentCard),
-                ],
-                const SizedBox(height: SpacingTokens.lg),
-                Text('UPCOMING MATCHES', style: TypographyTokens.sectionLabel),
-                const SizedBox(height: SpacingTokens.sm),
-                if (_data?.upcomingFixtures.isEmpty != false)
-                  Text('No upcoming matches found.',
-                      style: TypographyTokens.body
-                          .copyWith(color: ColorTokens.textMuted))
-                else
-                  ..._data!.upcomingFixtures.map(_buildUpcomingCard),
-                const SizedBox(height: SpacingTokens.xl),
-                AppButton.secondary(
-                  label: 'Full AI Simulation',
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => MatchIntelligenceScreen(
-                          onTabSelected: widget.onTabSelected,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: SpacingTokens.xl),
-              ],
-            ),
+              ? _buildError()
+              : _buildContent(),
     );
   }
 
-  Widget _buildHero() {
-    final prob = _data?.winProbability;
-    final next = _data?.nextFixture;
-    final pct = prob != null ? (prob * 100).round().toString() : '--';
-    final opponent = next != null ? next.opponentOf(_myTeam).toUpperCase() : 'NEXT MATCH';
-
-    return GestureDetector(
-      onTap: next != null ? () => _openMatchPreview(next) : null,
+  Widget _buildError() {
+    return Center(
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Center(
-            child: Container(
-              width: 132,
-              height: 132,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: ColorTokens.accent, width: 4),
-              ),
-              child: Center(
-                child: Text(pct,
-                    style: TypographyTokens.displayHero.copyWith(fontSize: 52)),
-              ),
-            ),
-          ),
-          const SizedBox(height: SpacingTokens.lg),
-          Center(
-            child: Text('VS $opponent',
-                style: TypographyTokens.displayHero.copyWith(fontSize: 46)),
-          ),
+          Text('Eroare la încărcare', style: TypographyTokens.headline.copyWith(color: ColorTokens.negative)),
           const SizedBox(height: SpacingTokens.sm),
-          Center(
-            child: Text(
-              next?.venue != null ? 'LIGA 1 · ${next!.venue!.toUpperCase()}' : 'LIGA 1 ROMANIA',
-              style: TypographyTokens.sectionLabel,
-            ),
-          ),
+          Text(_error!, style: TypographyTokens.body.copyWith(color: ColorTokens.textMuted), textAlign: TextAlign.center),
+          const SizedBox(height: SpacingTokens.lg),
+          TextButton(onPressed: _load, child: Text('RETRY', style: TypographyTokens.sectionLabel.copyWith(color: ColorTokens.accent))),
         ],
       ),
     );
   }
 
-  Widget _buildRecentCard(DashboardFixture f) {
-    final isHome = f.homeTeam == _myTeam;
-    final myScore = isHome ? f.homeScore : f.awayScore;
-    final theirScore = isHome ? f.awayScore : f.homeScore;
-    final opponent = f.opponentOf(_myTeam);
+  Widget _buildContent() {
+    // Sort: UCL fixtures first, then others
+    final uclFixtures = _fixtures.where((f) => f.involvesUCluj).toList();
+    final otherFixtures = _fixtures.where((f) => !f.involvesUCluj).toList();
 
-    String result = '';
-    if (myScore != null && theirScore != null) {
-      if (myScore > theirScore) {
-        result = 'W';
-      } else if (myScore < theirScore) {
-        result = 'L';
-      } else {
-        result = 'D';
-      }
-    }
+    return RefreshIndicator(
+      color: ColorTokens.accent,
+      backgroundColor: ColorTokens.surfaceHigh,
+      onRefresh: _load,
+      child: ListView(
+        children: [
+          // Week header
+          _buildWeekHeader(),
+          const SizedBox(height: SpacingTokens.xl),
 
-    final resultColor = result == 'W'
-        ? ColorTokens.positive
-        : result == 'L'
-            ? ColorTokens.negative
-            : ColorTokens.textMuted;
+          // U Cluj section
+          if (uclFixtures.isNotEmpty) ...[
+            _buildSectionLabel('U CLUJ — ACEASTĂ SĂPTĂMÂNĂ', ColorTokens.accent),
+            const SizedBox(height: SpacingTokens.sm),
+            ...uclFixtures.map((f) => _buildMatchCard(f, highlight: true)),
+            const SizedBox(height: SpacingTokens.xl),
+          ],
+
+          // Other Liga 1 matches
+          if (otherFixtures.isNotEmpty) ...[
+            _buildSectionLabel('LIGA 1 — ALTE MECIURI', ColorTokens.textMuted),
+            const SizedBox(height: SpacingTokens.sm),
+            ...otherFixtures.map((f) => _buildMatchCard(f, highlight: false)),
+          ],
+
+          if (_fixtures.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(SpacingTokens.xxl),
+                child: Text('Nu există meciuri această săptămână.',
+                    style: TypographyTokens.body.copyWith(color: ColorTokens.textMuted),
+                    textAlign: TextAlign.center),
+              ),
+            ),
+
+          const SizedBox(height: SpacingTokens.xxl),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeekHeader() {
+    final now = DateTime.now();
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+    final sunday = monday.add(const Duration(days: 6));
+    final label =
+        '${monday.day.toString().padLeft(2, '0')}.${monday.month.toString().padLeft(2, '0')} — '
+        '${sunday.day.toString().padLeft(2, '0')}.${sunday.month.toString().padLeft(2, '0')} ${sunday.year}';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 2),
       color: ColorTokens.surfaceLow,
-      padding: const EdgeInsets.symmetric(
-          horizontal: SpacingTokens.md, vertical: SpacingTokens.sm),
+      padding: const EdgeInsets.all(SpacingTokens.md),
       child: Row(
         children: [
-          Text(result,
-              style: TypographyTokens.headline
-                  .copyWith(color: resultColor, fontSize: 14)),
-          const SizedBox(width: SpacingTokens.md),
-          Expanded(
-              child: Text(opponent.toUpperCase(), style: TypographyTokens.body)),
-          Text(
-            myScore != null ? '$myScore - $theirScore' : '',
-            style: TypographyTokens.headline.copyWith(fontSize: 14),
-          ),
+          const Icon(Icons.calendar_today, color: ColorTokens.accent, size: 16),
+          const SizedBox(width: SpacingTokens.sm),
+          Text('SĂPTĂMÂNA CURENTĂ', style: TypographyTokens.sectionLabel),
+          const Spacer(),
+          Text(label, style: TypographyTokens.sectionLabel.copyWith(color: ColorTokens.accent)),
         ],
       ),
     );
   }
 
-  Widget _buildUpcomingCard(DashboardFixture fixture) {
-    final opponent = fixture.opponentOf(_myTeam).toUpperCase();
-    final date = fixture.matchDate.length >= 10
-        ? fixture.matchDate.substring(0, 10)
-        : fixture.matchDate;
+  Widget _buildSectionLabel(String text, Color color) {
+    return Row(
+      children: [
+        Container(width: 3, height: 14, color: color),
+        const SizedBox(width: SpacingTokens.xs),
+        Text(text, style: TypographyTokens.sectionLabel.copyWith(color: color)),
+      ],
+    );
+  }
+
+  Widget _buildMatchCard(WeekFixture f, {required bool highlight}) {
+    final isHome = f.homeTeam.toLowerCase().contains('universitatea cluj');
+    final prob = f.homeWinProbability;
+    final uclProb = highlight
+        ? (isHome ? prob : (prob != null ? 1 - prob : null))
+        : prob;
+
+    final probPct = uclProb != null ? '${(uclProb * 100).round()}%' : '--';
+    final probColor = uclProb == null
+        ? ColorTokens.textMuted
+        : uclProb >= 0.55
+            ? ColorTokens.positive
+            : uclProb >= 0.40
+                ? ColorTokens.accent
+                : ColorTokens.negative;
+
+    String result = '';
+    Color resultColor = ColorTokens.textMuted;
+    if (f.isCompleted && highlight) {
+      final myScore = isHome ? f.homeScore! : f.awayScore!;
+      final theirScore = isHome ? f.awayScore! : f.homeScore!;
+      if (myScore > theirScore) { result = 'V'; resultColor = ColorTokens.positive; }
+      else if (myScore < theirScore) { result = 'Î'; resultColor = ColorTokens.negative; }
+      else { result = 'E'; resultColor = ColorTokens.accent; }
+    }
 
     return GestureDetector(
-      onTap: () => _openMatchPreview(fixture),
+      onTap: () => _openStats(f),
       child: Container(
-        margin: const EdgeInsets.only(bottom: SpacingTokens.sm),
-        color: ColorTokens.surfaceLow,
-        padding: const EdgeInsets.all(SpacingTokens.md),
-        child: Row(
+        margin: const EdgeInsets.only(bottom: 2),
+        decoration: BoxDecoration(
+          color: highlight ? ColorTokens.surfaceLow : ColorTokens.surfaceLow,
+          border: highlight
+              ? const Border(left: BorderSide(color: ColorTokens.accent, width: 3))
+              : null,
+        ),
+        padding: const EdgeInsets.symmetric(
+            horizontal: SpacingTokens.md, vertical: SpacingTokens.md),
+        child: Column(
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('U CLUJ vs $opponent',
-                      style: TypographyTokens.body
-                          .copyWith(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 4),
-                  Text(date,
-                      style: TypographyTokens.body
-                          .copyWith(color: ColorTokens.textMuted, fontSize: 12)),
+            Row(
+              children: [
+                // Result badge (if completed)
+                if (result.isNotEmpty) ...[
+                  Container(
+                    width: 24,
+                    height: 24,
+                    color: resultColor.withValues(alpha: 0.15),
+                    child: Center(
+                      child: Text(result,
+                          style: TypographyTokens.sectionLabel
+                              .copyWith(color: resultColor, fontSize: 10)),
+                    ),
+                  ),
+                  const SizedBox(width: SpacingTokens.sm),
                 ],
-              ),
+
+                // Teams
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _teamRow(f.homeTeam, highlight && isHome),
+                      const SizedBox(height: 4),
+                      _teamRow(f.awayTeam, highlight && !isHome),
+                    ],
+                  ),
+                ),
+
+                // Score or probability
+                f.isCompleted
+                    ? _scoreBlock(f)
+                    : _probabilityBlock(probPct, probColor, highlight),
+              ],
             ),
-            const Icon(Icons.chevron_right,
-                color: ColorTokens.accent, size: 20),
+
+            // Date + venue
+            const SizedBox(height: SpacingTokens.xs),
+            Row(
+              children: [
+                Text(f.displayDate,
+                    style: TypographyTokens.body
+                        .copyWith(color: ColorTokens.textMuted, fontSize: 10)),
+                if (f.venue != null) ...[
+                  Text('  ·  ${f.venue}',
+                      style: TypographyTokens.body
+                          .copyWith(color: ColorTokens.textMuted, fontSize: 10)),
+                ],
+                const Spacer(),
+                Text('ANALIZĂ  ›',
+                    style: TypographyTokens.sectionLabel
+                        .copyWith(color: ColorTokens.accent, fontSize: 9)),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
-}
 
-class _DriverRow extends StatelessWidget {
-  const _DriverRow({
-    required this.label,
-    required this.delta,
-    required this.importance,
-  });
+  Widget _teamRow(String name, bool isMine) {
+    // Normalize display name
+    final display = name.replaceAll('Universitatea Cluj', 'U CLUJ');
+    return Text(
+      display.toUpperCase(),
+      style: TypographyTokens.body.copyWith(
+        fontWeight: isMine ? FontWeight.w800 : FontWeight.w400,
+        color: isMine ? ColorTokens.textPrimary : ColorTokens.textMuted,
+        fontSize: 13,
+      ),
+    );
+  }
 
-  final String label;
-  final String delta;
-  final double importance;
+  Widget _scoreBlock(WeekFixture f) {
+    return Container(
+      color: ColorTokens.surfaceHigh,
+      padding: const EdgeInsets.symmetric(
+          horizontal: SpacingTokens.sm, vertical: SpacingTokens.xs),
+      child: Text(
+        '${f.homeScore} — ${f.awayScore}',
+        style: TypographyTokens.headline.copyWith(fontSize: 18, letterSpacing: 2),
+      ),
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _probabilityBlock(String pct, Color color, bool highlight) {
+    if (!highlight) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Expanded(child: Text(label, style: TypographyTokens.body)),
-        Text(
-          '$delta${(importance * 100).toStringAsFixed(0)}%',
-          style: TypographyTokens.body.copyWith(
-            color: ColorTokens.accent,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+        Text(pct,
+            style: TypographyTokens.headline.copyWith(
+                color: color, fontSize: 22, letterSpacing: 0)),
+        Text('WIN PROB',
+            style: TypographyTokens.sectionLabel.copyWith(fontSize: 8)),
       ],
     );
   }
