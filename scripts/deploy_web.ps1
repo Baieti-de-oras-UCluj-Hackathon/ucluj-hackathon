@@ -1,0 +1,103 @@
+################################################################################
+#  deploy_web.ps1  –  one-click: start backend + tunnel + build + firebase deploy
+#  Run from anywhere:  powershell -ExecutionPolicy Bypass -File deploy_web.ps1
+################################################################################
+
+$ErrorActionPreference = "Continue"
+$root    = Split-Path $PSScriptRoot -Parent
+$backend = Join-Path $root "backend"
+$cf      = "$env:TEMP\cloudflared.exe"
+$cfLog   = "$env:TEMP\cf_tunnel.log"
+
+# ── helpers ──────────────────────────────────────────────────────────────────
+function Write-Step($msg) { Write-Host "`n==> $msg" -ForegroundColor Cyan }
+function Fail($msg)       { Write-Host "ERROR: $msg" -ForegroundColor Red; exit 1 }
+
+# ── 1. cloudflared binary ────────────────────────────────────────────────────
+Write-Step "Checking cloudflared..."
+if (-not (Test-Path $cf)) {
+    Write-Host "  Downloading cloudflared..."
+    Invoke-WebRequest `
+        -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" `
+        -OutFile $cf -UseBasicParsing
+}
+Write-Host "  OK: $(&$cf --version)"
+
+# ── 2. Kill stale processes ──────────────────────────────────────────────────
+Write-Step "Stopping old processes..."
+Get-Process -Name "cloudflared" -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process -Name "python" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -like "*uvicorn*" } |
+    Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 1
+
+# ── 3. Start backend ─────────────────────────────────────────────────────────
+Write-Step "Starting FastAPI backend..."
+$backendProc = Start-Process -FilePath "python" `
+    -ArgumentList "-m uvicorn app.main:app --host 127.0.0.1 --port 8000" `
+    -WorkingDirectory $backend -WindowStyle Hidden -PassThru
+
+$ready = $false
+for ($i = 0; $i -lt 15; $i++) {
+    Start-Sleep -Seconds 1
+    try {
+        $r = Invoke-WebRequest -Uri "http://127.0.0.1:8000/api/v1/health" -UseBasicParsing -TimeoutSec 2
+        Write-Host "  Backend ready: $($r.Content)"
+        $ready = $true; break
+    } catch {}
+}
+if (-not $ready) { Fail "Backend did not start in time." }
+
+# ── 4. Start Cloudflare tunnel ───────────────────────────────────────────────
+Write-Step "Starting Cloudflare tunnel..."
+if (Test-Path $cfLog) { Remove-Item $cfLog }
+Start-Process -FilePath $cf `
+    -ArgumentList "tunnel --url http://127.0.0.1:8000 --logfile `"$cfLog`"" `
+    -WindowStyle Hidden
+
+$tunnelUrl = $null
+for ($i = 0; $i -lt 20; $i++) {
+    Start-Sleep -Seconds 1
+    if (Test-Path $cfLog) {
+        $match = Select-String -Path $cfLog -Pattern "https://[a-z0-9\-]+\.trycloudflare\.com"
+        if ($match) {
+            $tunnelUrl = $match.Matches[0].Value
+            break
+        }
+    }
+}
+if (-not $tunnelUrl) { Fail "Could not get tunnel URL from log." }
+Write-Host "  Tunnel: $tunnelUrl"
+
+# ── 5. Flutter web build ─────────────────────────────────────────────────────
+Write-Step "Building Flutter web..."
+Set-Location $root
+$apiUrl = "$tunnelUrl/api/v1"
+$buildOut = flutter build web `
+    "--dart-define=API_BASE_URL=$apiUrl" `
+    "--dart-define=APP_ENV=production" `
+    "--dart-define=USE_FIREBASE_AUTH=false" 2>&1
+
+$buildOut | Where-Object { $_ -match "Built|error" } | ForEach-Object { Write-Host "  $_" }
+if ($LASTEXITCODE -ne 0) { Fail "Flutter build failed." }
+
+# ── 6. Firebase deploy ───────────────────────────────────────────────────────
+Write-Step "Deploying to Firebase..."
+$depOut = firebase deploy --only hosting 2>&1
+$depOut | Where-Object { $_ -match "complete|Error|Hosting URL|release" } | ForEach-Object { Write-Host "  $_" }
+if ($LASTEXITCODE -ne 0) { Fail "Firebase deploy failed." }
+
+# ── Done ─────────────────────────────────────────────────────────────────────
+Write-Host ""
+Write-Host "============================================================" -ForegroundColor Green
+Write-Host "  LIVE at  https://hackatonu.web.app" -ForegroundColor Green
+Write-Host "  Backend: http://127.0.0.1:8000" -ForegroundColor Green
+Write-Host "  Tunnel:  $tunnelUrl" -ForegroundColor Green
+Write-Host "============================================================" -ForegroundColor Green
+Write-Host ""
+Write-Host "Keep this window open to maintain the tunnel." -ForegroundColor Yellow
+Read-Host "Press ENTER to stop the tunnel and backend"
+
+# cleanup
+Get-Process -Name "cloudflared" -ErrorAction SilentlyContinue | Stop-Process -Force
+$backendProc | Stop-Process -Force -ErrorAction SilentlyContinue
