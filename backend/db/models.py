@@ -35,6 +35,7 @@ class Message(Base):
     )
     team_name: Mapped[str] = mapped_column(String(120), index=True, nullable=False)
     author_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    channel_id: Mapped[str] = mapped_column(String(255), index=True, nullable=False, default="general")
     author_name: Mapped[str] = mapped_column(String(255), nullable=False)
     content: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     file_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
