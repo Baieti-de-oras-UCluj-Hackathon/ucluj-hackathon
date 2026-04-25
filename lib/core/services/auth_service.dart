@@ -4,6 +4,7 @@ class AuthUser {
   AuthUser({
     required this.id,
     required this.email,
+    this.fullName,
     required this.role,
     required this.teamName,
     required this.isActive,
@@ -12,6 +13,7 @@ class AuthUser {
   factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(
         id: json['id']?.toString() ?? '',
         email: json['email']?.toString() ?? '',
+        fullName: json['full_name']?.toString(),
         role: json['role']?.toString() ?? '',
         teamName: json['team_name'] as String?,
         isActive: json['is_active'] as bool? ?? false,
@@ -19,6 +21,7 @@ class AuthUser {
 
   final String id;
   final String email;
+  final String? fullName;
   final String role;
   final String? teamName;
   final bool isActive;
@@ -37,11 +40,13 @@ class AuthService {
   Future<AuthUser> register({
     required String email,
     required String password,
+    required String fullName,
     required String teamName,
   }) async {
     final data = await _api.post('/auth/register', body: {
       'email': email,
       'password': password,
+      'full_name': fullName,
       'team_name': teamName,
     });
     return AuthUser.fromJson(data);
@@ -55,10 +60,36 @@ class AuthService {
       'email': email,
       'password': password,
     });
+    _setTokensFromResponse(data);
+  }
+
+  void _setTokensFromResponse(Map<String, dynamic> data) {
     _api.setTokens(
       access: data['access_token'] as String,
       refresh: data['refresh_token'] as String,
     );
+  }
+
+  /// Verifies [idToken] on the backend; returns FastAPI access/refresh tokens.
+  Future<void> exchangeWithFirebaseIdToken(String idToken) async {
+    final data = await _api.post(
+      '/auth/firebase',
+      firebaseIdToken: idToken,
+    );
+    _setTokensFromResponse(data);
+  }
+
+  /// Creates app user and returns JWT; requires a fresh Firebase [idToken].
+  Future<void> registerWithFirebaseIdToken({
+    required String idToken,
+    required String teamName,
+  }) async {
+    final data = await _api.post(
+      '/auth/register_with_firebase',
+      firebaseIdToken: idToken,
+      body: {'team_name': teamName},
+    );
+    _setTokensFromResponse(data);
   }
 
   Future<void> refresh() async {

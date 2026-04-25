@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from api.v1.endpoints import auth, health, predict, optimize, explain, dashboard, fixtures, standings, chat, xi
+from api.v1.endpoints import auth, health, predict, optimize, explain, dashboard, fixtures, standings, chat, xi, ws_chat
 
 v1_router = APIRouter()
 
@@ -14,3 +14,4 @@ v1_router.include_router(fixtures.router, tags=["fixtures"])
 v1_router.include_router(standings.router, tags=["standings"])
 v1_router.include_router(chat.router, tags=["chat"])
 v1_router.include_router(xi.router, tags=["xi"], prefix="/xi")
+v1_router.include_router(ws_chat.router, tags=["ws_chat"])

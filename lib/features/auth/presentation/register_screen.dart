@@ -21,6 +21,7 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
@@ -58,6 +59,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
+    _nameCtrl.dispose();
     _emailCtrl.dispose();
     _passCtrl.dispose();
     _confirmCtrl.dispose();
@@ -67,11 +69,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _submit() async {
     if (_submitting) return;
 
+    final name = _nameCtrl.text.trim();
     final email = _emailCtrl.text.trim();
     final pass = _passCtrl.text;
     final confirm = _confirmCtrl.text;
 
-    if (email.isEmpty || pass.isEmpty) {
+    if (name.isEmpty || email.isEmpty || pass.isEmpty) {
       setState(() => _localError = 'All fields are required');
       return;
     }
@@ -96,6 +99,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final success = await widget.authState.register(
       email: email,
       password: pass,
+      fullName: name,
       teamName: _selectedTeam!,
     );
 
@@ -138,6 +142,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     style: TypographyTokens.sectionLabel,
                   ),
                   const SizedBox(height: 48),
+                  _buildField(_nameCtrl, 'FULL NAME', false),
+                  const SizedBox(height: SpacingTokens.md),
                   _buildField(_emailCtrl, 'EMAIL', false),
                   const SizedBox(height: SpacingTokens.md),
                   _buildField(_passCtrl, 'PASSWORD', true),

@@ -52,6 +52,7 @@ class _AppShellState extends State<AppShell> {
         return ChatScreen(
           onTabSelected: _onTabSelected,
           onProfileTap: _openProfile,
+          authState: widget.authState,
         );
       case AppTab.analytics:
         return AnalyticsScreen(

@@ -8,7 +8,9 @@ import '../features/auth/presentation/register_screen.dart';
 import '../core/routing/app_router.dart';
 
 class UmbraRoApp extends StatefulWidget {
-  const UmbraRoApp({super.key});
+  const UmbraRoApp({super.key, required this.authState});
+
+  final AuthState authState;
 
   @override
   State<UmbraRoApp> createState() => _UmbraRoAppState();
@@ -20,7 +22,7 @@ class _UmbraRoAppState extends State<UmbraRoApp> {
   @override
   void initState() {
     super.initState();
-    _authState = AuthState();
+    _authState = widget.authState;
     _authState.addListener(_onAuthChanged);
   }
 
