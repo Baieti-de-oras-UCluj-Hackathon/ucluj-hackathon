@@ -1,5 +1,4 @@
-from __future__ import annotations
-
+import os
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
@@ -51,17 +50,96 @@ def week_fixtures(
 
     fixtures = [fixture_svc._row_to_fixture(r) for _, r in week_df.iterrows()]
 
-    # Fall back: if the dataset has no matches this week (historical data),
-    # show the last 5 completed fixtures of the tracked team + 2 upcoming mocks.
-    if not fixtures:
-        recent = fixture_svc.recent_fixtures(TRACKED_TEAM, n=5)
-        upcoming = fixture_svc.upcoming_fixtures(TRACKED_TEAM, n=2)
-        fixtures = recent + upcoming
+    # Team name normalization map: JSON name -> CSV name
+    NAME_MAP = {
+        "Universitatea Cluj": "U Cluj",
+        "FCS Bucureşti": "FCSB",
+        "FCS Bucuresti": "FCSB",
+        "Dinamo Bucureşti": "Dinamo Bucuresti",
+        "Rapid Bucureşti": "Rapid Bucuresti",
+        "Oţelul": "Otelul Galati",
+        "Otelul": "Otelul Galati",
+        "Botoşani": "FC Botosani",
+        "Botosani": "FC Botosani",
+        "Hermannstadt": "FC Hermannstadt",
+        "Farul Constanţa": "Farul Constanta",
+        "Farul Constanta": "Farul Constanta",
+        "Universitatea Craiova": "Univ. Craiova",
+        "Argeș": "FC Arges",
+        "Arges": "FC Arges",
+        "Unirea Slobozia": "Unirea Slobozia",
+        "Csikszereda Miercurea Ciuc": "Csikszereda M. Ciuc",
+        "Metaloglobus": "Metaloglobus Bucuresti",
+        "Petrolul 52": "Petrolul Ploiesti",
+        "UTA Arad": "UTA Arad",
+        "CFR Cluj": "CFR Cluj",
+    }
 
-    # Attach ML probability + key drivers to each fixture
+    # NEW: Load fixtures EXCLUSIVELY from JSON files in drive_cache
+    json_fixtures = []
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+    json_path = os.path.join(base_dir, "ml", "data", "drive_cache")
+    
+    if os.path.exists(json_path):
+        import glob
+        import re
+        # Get all player stats JSONs
+        files = glob.glob(os.path.join(json_path, "*_players_stats.json"))
+        # Filter for U Cluj
+        u_files = [f for f in files if "Universitatea Cluj" in f or "U Cluj" in f]
+        # Sort them to be consistent
+        u_files.sort()
+        # Take up to 7 for the week
+        selected_files = u_files[:7] 
+        
+        for idx, f in enumerate(selected_files):
+            fname = os.path.basename(f)
+            # Pattern to extract teams and score
+            match = re.search(r"^(.*?) - (.*?), (.*?)[_]", fname)
+            if match:
+                h_raw, a_raw, score_str = match.groups()
+                h_raw, a_raw = h_raw.strip(), a_raw.strip()
+                
+                # Normalize names for feature lookup
+                h = NAME_MAP.get(h_raw, h_raw)
+                a = NAME_MAP.get(a_raw, a_raw)
+
+                try:
+                    hs, as_ = map(int, score_str.split("-"))
+                except:
+                    hs, as_ = 0, 0
+                
+                # Assign a specific day of this week (Mon=0, Tue=1, ...)
+                mock_dt = monday + timedelta(days=idx)
+                
+                json_fixtures.append({
+                    "match_id": f"json_{idx}",
+                    "season": "2025-2026",
+                    "home_team": h, # Use normalized name for UI and ML
+                    "away_team": a,
+                    "home_score": hs,
+                    "away_score": as_,
+                    "venue": "Cluj Arena" if h == "U Cluj" else "Stadion Advers",
+                    "competition": "SuperLiga",
+                    "match_date": mock_dt.strftime("%Y-%m-%dT18:00:00Z")
+                })
+
+    # OVERWRITE: Only use JSON fixtures if found, else empty (as requested: "ia doar de aici")
+    fixtures = json_fixtures
+    if not fixtures:
+        return [] # Return empty if no JSONs found in that specific folder
+
+    # Attach ML probability + key drivers + MOCK DATES for 2026
     result = []
-    for f in fixtures:
+    # Generate dates: Mon to Sun of current week
+    mock_dates = [(monday + timedelta(days=i)) for i in range(len(fixtures))]
+    
+    for idx, f in enumerate(fixtures):
         item = dict(f)
+        # Force date to 2026 mock date
+        mock_dt = mock_dates[idx] if idx < len(mock_dates) else sunday
+        item["match_date"] = mock_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        
         try:
             if model_svc.is_ready:
                 feat = feature_svc.build_feature_vector(
