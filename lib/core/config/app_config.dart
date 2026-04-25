@@ -7,6 +7,6 @@ class AppConfig {
 
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://repeated-century-bug-road.trycloudflare.com/api/v1',
+    defaultValue: 'http://localhost:8000/api/v1',
   );
 }

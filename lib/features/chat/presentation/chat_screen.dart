@@ -88,6 +88,10 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _typing = false;
   bool _uploading = false;
   WebSocketChannel? _channel;
+  
+  String _currentChannelId = '';
+  String _currentChannelName = 'TEAM CHAT';
+  List<Map<String, dynamic>> _teamUsers = [];
 
   String get _senderName {
     final user = widget.authState?.user;
@@ -98,7 +102,36 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    final teamName = widget.authState?.user?.teamName ?? 'general';
+    _currentChannelId = '${teamName}_general';
     _ctrl.addListener(_onTextChange);
+    _fetchTeamUsers();
+    _connectWebSocket();
+  }
+
+  Future<void> _fetchTeamUsers() async {
+    try {
+      final api = widget.authState?.api;
+      if (api == null) return;
+      final res = await api.getList('/chat/users');
+      if (mounted) {
+        setState(() {
+          _teamUsers = List<Map<String, dynamic>>.from(res);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching users: $e');
+    }
+  }
+
+  void _switchChannel(String id, String name) {
+    if (_currentChannelId == id) return;
+    setState(() {
+      _currentChannelId = id;
+      _currentChannelName = name;
+      _msgs.clear();
+    });
+    _channel?.sink.close();
     _connectWebSocket();
   }
 
@@ -107,7 +140,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (token == null) return;
 
     final wsBaseUrl = AppConfig.apiBaseUrl.replaceFirst('http', 'ws');
-    final uri = Uri.parse('$wsBaseUrl/chat/ws?token=$token');
+    final uri = Uri.parse('$wsBaseUrl/chat/ws/$_currentChannelId?token=$token');
 
     _channel = WebSocketChannel.connect(uri);
     _channel!.stream.listen(
@@ -236,11 +269,61 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Header(teamName: widget.authState?.user?.teamName),
+          _Header(channelName: _currentChannelName),
+          _buildChannelsList(),
+          const SizedBox(height: SpacingTokens.md),
           Expanded(child: _buildList()),
           if (_typing) _buildTypingHint(),
           _buildInput(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildChannelsList() {
+    final teamName = widget.authState?.user?.teamName ?? 'general';
+    final genId = '${teamName}_general';
+    return SizedBox(
+      height: 40,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          _buildChannelChip(
+            id: genId,
+            name: 'TEAM CHAT',
+            isSelected: _currentChannelId == genId,
+          ),
+          ..._teamUsers.map((u) {
+            final otherId = u['id'] as String;
+            final myId = widget.authState?.user?.id ?? '';
+            final ids = [myId, otherId]..sort();
+            final dmId = 'dm_${ids[0]}_${ids[1]}';
+            final rawName = u['full_name']?.toString().isNotEmpty == true 
+                ? u['full_name'] 
+                : u['email'].toString().split('@')[0];
+            final name = '@$rawName'.toUpperCase();
+            return _buildChannelChip(
+              id: dmId,
+              name: name,
+              isSelected: _currentChannelId == dmId,
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChannelChip({required String id, required String name, required bool isSelected}) {
+    return Padding(
+      padding: const EdgeInsets.only(right: SpacingTokens.sm),
+      child: ActionChip(
+        label: Text(name),
+        backgroundColor: isSelected ? ColorTokens.accent : Colors.transparent,
+        labelStyle: TextStyle(
+          color: isSelected ? ColorTokens.onAccent : ColorTokens.textPrimary,
+        ),
+        side: const BorderSide(color: ColorTokens.accent),
+        onPressed: () => _switchChannel(id, name),
       ),
     );
   }
@@ -339,40 +422,33 @@ class _ChatScreenState extends State<ChatScreen> {
 // ─── Header ───────────────────────────────────────────────────────────────────
 
 class _Header extends StatelessWidget {
-  const _Header({this.teamName});
-  final String? teamName;
+  const _Header({required this.channelName});
+  final String channelName;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: SpacingTokens.lg),
+      padding: const EdgeInsets.only(bottom: SpacingTokens.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'TEAM CHANNEL',
+            'CHANNEL',
             style: TypographyTokens.sectionLabel
                 .copyWith(color: ColorTokens.accent),
           ),
           const SizedBox(height: SpacingTokens.sm),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Container(width: 3, height: 72, color: ColorTokens.accent),
+              Container(width: 3, height: 40, color: ColorTokens.accent),
               const SizedBox(width: SpacingTokens.md),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('TEAM CHAT',
-                      style:
-                          TypographyTokens.displayHero.copyWith(fontSize: 40)),
-                  if (teamName != null && teamName!.isNotEmpty)
-                    Text(
-                      teamName!.toUpperCase(),
-                      style: TypographyTokens.sectionLabel
-                          .copyWith(color: ColorTokens.textMuted),
-                    ),
-                ],
+              Expanded(
+                child: Text(
+                  channelName,
+                  style: TypographyTokens.displayHero.copyWith(fontSize: 32),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
