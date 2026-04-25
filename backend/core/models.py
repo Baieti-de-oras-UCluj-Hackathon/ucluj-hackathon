@@ -99,7 +99,7 @@ class RegisterRequest(BaseModel):
     email: str = Field(..., min_length=3, description="User email")
     password: str = Field(..., min_length=8, description="Password (min 8 chars)")
     full_name: str = Field(..., min_length=2, description="User full name / username")
-    team_name: str = Field(..., min_length=2, description="Selected team for current user scope")
+    team_name: str | None = Field(None, description="Selected team (defaults to Universitatea Cluj)")
 
 
 class LoginRequest(BaseModel):
@@ -127,4 +127,4 @@ class UserResponse(BaseModel):
 
 
 class FirebaseRegisterRequest(BaseModel):
-    team_name: str = Field(..., min_length=2, description="Selected team for current user scope")
+    team_name: str | None = Field(None, description="Selected team (defaults to Universitatea Cluj)")

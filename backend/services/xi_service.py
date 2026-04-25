@@ -33,11 +33,20 @@ class XiService:
             
         self._df = build_dataset_from_files(match_files, self._profiles)
         
+        if self._df is None or self._df.empty:
+            # Return empty but with columns if possible, or just empty
+            self._df = pd.DataFrame(columns=["playerId", "teamId"])
+            return self._df
+
         def resolve_team(pid):
             profile = self._profiles.get(pid, {})
             return profile.get("currentTeamId", None)
             
-        self._df["teamId"] = self._df["playerId"].apply(resolve_team)
+        if "playerId" in self._df.columns:
+            self._df["teamId"] = self._df["playerId"].apply(resolve_team)
+        else:
+            self._df["teamId"] = None
+
         return self._df
 
     def predict_xi(self, formation: str, opponent_team_id: Optional[int]) -> Dict:
@@ -49,7 +58,10 @@ class XiService:
         
         my_team_df = df[df["teamId"] == my_team_id].copy()
         if my_team_df.empty:
-            raise RuntimeError(f"No players found for base team {my_team_id}")
+            # Fallback: if no players assigned to our team, use everyone as a pool
+            my_team_df = df.copy()
+            if my_team_df.empty:
+                raise RuntimeError(f"No players found in dataset for prediction")
             
         opp_team_df = df[df["teamId"] == opponent_team_id].copy() if opponent_team_id else None
         
@@ -84,11 +96,26 @@ class XiService:
         ]
 
         known_names = {
-            8164: "FCSB",
-            11566: "CFR Cluj",
-            11572: "Rapid Bucuresti",
-            11568: "Dinamo Bucuresti",
+            11565: "FCSB",
+            11611: "CFR Cluj",
+            11634: "Rapid Bucuresti",
+            11564: "Dinamo Bucuresti",
+            26233: "Universitatea Craiova",
+            61242: "Farul Constanta",
+            22731: "Sepsi OSK",
+            60390: "UTA Arad",
+            11943: "FC Voluntari",
+            55427: "FC Botosani",
+            30817: "Hermannstadt",
+            11566: "Politehnica Iasi",
+            23334: "FC Arges",
+            60374: "Corvinul Hunedoara",
+            11571: "Universitatea Cluj",
         }
+
+        # If data is missing or empty, return the hardcoded list as fallback
+        if not candidate_ids:
+            candidate_ids = [tid for tid in known_names.keys() if tid != my_team_id]
 
         opponents = [
             {

@@ -18,6 +18,7 @@ import 'app.dart';
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
   installGlobalErrorHandlers();
+  await AppConfig.load();
 
   if (AppConfig.useFirebaseAuth) {
     try {

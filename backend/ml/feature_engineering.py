@@ -105,7 +105,23 @@ def build_player_feature_vector(
     if not valid_stats:
         return None
 
+    # ── Positions played (encoded as set of codes) ───────────────────────────
+    all_positions = set()
+    position_names = []
+    for s in match_stats_list:
+        for pos in s.get("positions", []):
+            code = pos.get("position", {}).get("code", "")
+            name = pos.get("position", {}).get("name", "")
+            if code:
+                all_positions.add(code)
+            if name:
+                position_names.append(name)
+
     role_name = player_profile.get("role", {}).get("name", "Midfielder")
+    if role_name == "Midfielder" and position_names:
+        from collections import Counter
+        role_name = Counter(position_names).most_common(1)[0][0]
+    
     role_group = role_to_group(role_name)
 
     # ── Aggregate stats across matches ──────────────────────────────────────
@@ -148,14 +164,6 @@ def build_player_feature_vector(
         except Exception:
             pass
 
-    # ── Positions played (encoded as set of codes) ───────────────────────────
-    # Passed in via match_stats_list items that may have a "positions" list
-    all_positions = set()
-    for s in match_stats_list:
-        for pos in s.get("positions", []):
-            code = pos.get("position", {}).get("code", "")
-            if code:
-                all_positions.add(code)
 
     feature = {
         "playerId": player_profile.get("wyId"),
