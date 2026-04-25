@@ -6,6 +6,7 @@ import '../../../core/theme/typography_tokens.dart';
 import '../../../data/models/week_fixture.dart';
 import '../../../data/models/match_preview.dart';
 import '../../../data/repositories/xi_repository.dart';
+import 'soccer_pitch.dart';
 
 class MatchStatsSheet extends StatefulWidget {
   const MatchStatsSheet({
@@ -126,7 +127,14 @@ class _MatchStatsSheetState extends State<MatchStatsSheet> {
                 ],
 
                 // XI section — only for U Cluj matches
-                if (f.involvesUCluj) ...[
+                if (f.involvesUCluj && _preview != null) ...[
+                  _sectionLabel('VIZUALIZARE TACTICĂ — $_formation'),
+                  const SizedBox(height: SpacingTokens.md),
+                  SoccerPitch(
+                    players: _preview!.startingXi,
+                    formation: _formation,
+                  ),
+                  const SizedBox(height: SpacingTokens.xl),
                   _buildXiSection(),
                 ],
 

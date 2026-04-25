@@ -37,12 +37,7 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://hackatonu.web.app",
-        "https://jpeg-inf-statistical-argument.trycloudflare.com",
-        "http://localhost:8080",
-        "http://127.0.0.1:8080",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -7,7 +7,10 @@ import pandas as pd
 from catboost import CatBoostClassifier, CatBoostRegressor
 
 
-class XIPredictor:
+FORMATIONS = ["4-3-3", "4-4-2", "4-2-3-1", "3-5-2", "5-3-2"]
+
+
+class StartingXIPredictor:
     """
     Handles player performance scoring and optimal XI selection.
     Uses a hybrid approach:
@@ -177,13 +180,22 @@ class XIPredictor:
         pool.loc[pool["role_group"] == "DEF", "predicted_score"] *= def_adj
 
         # 3. Formations logic
-        # format: "4-3-3" -> [GK:1, DEF:4, MID:3, FWD:3]
-        parts = formation.split("-")
+        # format: "4-3-3" or "4-2-3-1"
+        parts = [int(p) for p in formation.split("-")]
+        
+        # We map parts to our role_groups: GK, DEF, MID, FWD
+        # The first part is always DEF.
+        # The last part is always FWD.
+        # Any middle parts are summed as MID.
+        def_count = parts[0]
+        fwd_count = parts[-1]
+        mid_count = sum(parts[1:-1]) if len(parts) > 2 else parts[1]
+
         slots = {
             "GK": 1,
-            "DEF": int(parts[0]),
-            "MID": int(parts[1]),
-            "FWD": int(parts[2]),
+            "DEF": def_count,
+            "MID": mid_count,
+            "FWD": fwd_count,
         }
 
         xi_rows = []

@@ -53,6 +53,7 @@ class ExplanationService:
         if not importances:
             return {"top_drivers": [], "top_risks": [], "narrative": "Feature importances unavailable."}
 
+        total_imp = sum(importances.values()) or 1.0
         row = features.iloc[0]
         items = []
         for feat, imp in importances.items():
@@ -61,7 +62,7 @@ class ExplanationService:
             items.append({
                 "feature": feat,
                 "label": FEATURE_LABELS.get(feat, feat),
-                "importance": round(imp, 4),
+                "importance": round(imp / total_imp, 4),
                 "direction": "positive" if is_positive else "negative",
             })
 

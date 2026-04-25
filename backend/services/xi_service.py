@@ -75,11 +75,15 @@ class XiService:
             
         opp_team_df = df[df["teamId"] == opponent_team_id].copy() if opponent_team_id else None
         
-        result = self.predictor.predict_xi(
-            df=my_team_df,
+        # Calculate adjustments if opponent is provided
+        adj = {}
+        if opp_team_df is not None:
+            adj = self.predictor.compute_opponent_adjustments(opp_team_df)
+
+        result = self.predictor.predict_optimal_xi(
+            df_players=my_team_df,
             formation=formation,
-            your_team_id=my_team_id,
-            opponent_df=opp_team_df
+            opponent_adjustments=adj
         )
         
         return _format_output(result, my_team_id, opponent_team_id)
@@ -104,12 +108,15 @@ class XiService:
             raise RuntimeError(f"No players found for base team {my_team_id}")
 
         opp_team_df = df[df["teamId"] == opp_id].copy() if opp_id else None
+        
+        adj = {}
+        if opp_team_df is not None:
+            adj = self.predictor.compute_opponent_adjustments(opp_team_df)
 
-        result = self.predictor.predict_xi(
-            df=my_team_df,
+        result = self.predictor.predict_optimal_xi(
+            df_players=my_team_df,
             formation=formation,
-            your_team_id=my_team_id,
-            opponent_df=opp_team_df,
+            opponent_adjustments=adj,
         )
 
         _PLAYER_COLS = [
