@@ -3,11 +3,33 @@ from __future__ import annotations
 import os
 import pickle
 import glob
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 import pandas as pd
 
 from ml.pipeline import load_player_profiles, build_dataset_from_files, _format_output
 from ml.xi_predictor import StartingXIPredictor
+
+# Maps fixture CSV team names → WyScout team IDs used in player profiles
+FIXTURE_NAME_TO_ID: dict[str, int] = {
+    "U Cluj": 11571,
+    "CFR Cluj": 11611,
+    "FCSB": 8164,
+    "Rapid Bucuresti": 11566,
+    "Dinamo Bucuresti": 11564,
+    "FC Botosani": 11634,
+    "Unirea Slobozia": 11663,
+    "Metaloglobus Bucuresti": 11943,
+    "Csikszereda M. Ciuc": 22731,
+    "FC Arges": 23334,
+    "U Craiova 1948": 26233,
+    "Univ. Craiova": 26233,
+    "UTA Arad": 30817,
+    "FC Hermannstadt": 55427,
+    "Petrolul Ploiesti": 60390,
+    "Farul Constanta": 61242,
+    "Otelul Galati": 69049,
+    "Sepsi Sf. Gheorghe": None,
+}
 
 class XiService:
     def __init__(self, model_path: str, data_dir: str):
@@ -61,6 +83,115 @@ class XiService:
         )
         
         return _format_output(result, my_team_id, opponent_team_id)
+
+    def match_preview(
+        self,
+        opponent_name: str,
+        formation: str,
+        main_df: Optional[pd.DataFrame] = None,
+    ) -> Dict:
+        """Return starting XI + team stats + H2H record for an upcoming match."""
+        if not self.predictor:
+            raise RuntimeError("XI model not loaded")
+
+        opp_id = FIXTURE_NAME_TO_ID.get(opponent_name)
+
+        df = self._get_feature_df()
+        my_team_id = 11571
+
+        my_team_df = df[df["teamId"] == my_team_id].copy()
+        if my_team_df.empty:
+            raise RuntimeError(f"No players found for base team {my_team_id}")
+
+        opp_team_df = df[df["teamId"] == opp_id].copy() if opp_id else None
+
+        result = self.predictor.predict_xi(
+            df=my_team_df,
+            formation=formation,
+            your_team_id=my_team_id,
+            opponent_df=opp_team_df,
+        )
+
+        _PLAYER_COLS = [
+            "playerId", "shortName", "role", "role_group",
+            "predicted_score", "performance_score", "recent_form_score",
+            "total_minutes", "matches_played",
+            "pass_accuracy", "duel_win_rate",
+            "per90_goals", "per90_assists", "per90_shots",
+            "per90_keyPasses", "per90_interceptions", "per90_gkSaves",
+        ]
+
+        def _fmt(frame: pd.DataFrame) -> List[Dict]:
+            if frame is None or frame.empty:
+                return []
+            cols = [c for c in _PLAYER_COLS if c in frame.columns]
+            return frame[cols].fillna(0).to_dict(orient="records")
+
+        # Team aggregate stats
+        all_df = result.get("all_scored", pd.DataFrame())
+        team_stats: Dict = {}
+        if not all_df.empty:
+            def _mean(col: str) -> float:
+                return round(float(all_df[col].mean()), 2) if col in all_df.columns else 0.0
+
+            team_stats = {
+                "avg_performance_score": _mean("performance_score"),
+                "avg_recent_form": _mean("recent_form_score"),
+                "avg_pass_accuracy": round(_mean("pass_accuracy"), 1),
+                "avg_duel_win_rate": round(_mean("duel_win_rate"), 1),
+            }
+            for stat, key in [("per90_goals", "top_scorer"), ("per90_keyPasses", "top_creator")]:
+                if stat in all_df.columns and not all_df.empty:
+                    row = all_df.nlargest(1, stat).iloc[0]
+                    team_stats[key] = str(row.get("shortName", ""))
+                    team_stats[f"{key}_stat"] = round(float(row.get(stat, 0)), 2)
+
+        # Head-to-head from main fixtures CSV
+        h2h: Dict = {"total": 0, "our_wins": 0, "draws": 0, "their_wins": 0,
+                     "our_avg_goals": 0.0, "their_avg_goals": 0.0}
+        if main_df is not None and not main_df.empty:
+            try:
+                our = "U Cluj"
+                mask = (
+                    ((main_df["home_team"] == our) & (main_df["away_team"] == opponent_name))
+                    | ((main_df["home_team"] == opponent_name) & (main_df["away_team"] == our))
+                )
+                h2h_df = main_df[mask].dropna(subset=["home_score", "away_score"]).tail(10)
+                if not h2h_df.empty:
+                    our_wins = draws = their_wins = our_g_total = their_g_total = 0
+                    for _, row in h2h_df.iterrows():
+                        hs, as_ = int(row["home_score"]), int(row["away_score"])
+                        is_home = row["home_team"] == our
+                        og, tg = (hs, as_) if is_home else (as_, hs)
+                        our_g_total += og
+                        their_g_total += tg
+                        if og > tg:
+                            our_wins += 1
+                        elif og < tg:
+                            their_wins += 1
+                        else:
+                            draws += 1
+                    n = len(h2h_df)
+                    h2h = {
+                        "total": n,
+                        "our_wins": our_wins,
+                        "draws": draws,
+                        "their_wins": their_wins,
+                        "our_avg_goals": round(our_g_total / n, 1),
+                        "their_avg_goals": round(their_g_total / n, 1),
+                    }
+            except Exception:
+                pass
+
+        return {
+            "formation": formation,
+            "opponent_name": opponent_name,
+            "opponent_team_id": opp_id,
+            "starting_xi": _fmt(result["xi"]),
+            "bench": _fmt(result["bench"]),
+            "team_stats": team_stats,
+            "head_to_head": h2h,
+        }
 
     def list_opponents(self, min_players: int = 20) -> list[dict]:
         """Return opponent options inferred from loaded XI feature data."""
