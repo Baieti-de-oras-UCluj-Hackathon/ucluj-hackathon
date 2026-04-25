@@ -54,6 +54,8 @@ def load_player_profiles(filepath: str) -> Dict[int, Dict]:
     if isinstance(raw, list):
         return {p["wyId"]: p for p in raw if "wyId" in p}
     elif isinstance(raw, dict):
+        if "players" in raw and isinstance(raw["players"], list):
+            return {p["wyId"]: p for p in raw["players"] if "wyId" in p}
         return {int(k): v for k, v in raw.items()}
     return {}
 

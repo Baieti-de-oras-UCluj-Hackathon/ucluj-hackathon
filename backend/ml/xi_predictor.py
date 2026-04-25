@@ -21,6 +21,12 @@ import warnings
 warnings.filterwarnings("ignore")
 
 try:
+    from catboost import CatBoostClassifier
+    HAS_CATBOOST = True
+except ImportError:
+    HAS_CATBOOST = False
+
+try:
     import xgboost as xgb
     HAS_XGB = True
 except ImportError:
@@ -170,15 +176,34 @@ class StartingXIPredictor:
             labels: Binary series — 1 if player started, 0 if not.
                     If None, uses unsupervised scoring.
         """
+        if labels is None or len(labels.unique()) < 2:
+            self.is_supervised = False
+            return
+            
+        self.is_supervised = True
+        self.feature_cols = self._get_feature_cols(df)
+        X = df[self.feature_cols].fillna(0).values
+        y = labels.values
+        
+        X_scaled = self.scaler.fit_transform(X)
+
         cat_cols = ["role", "role_group", "positions_played"]
-        cat_idx  = [df.columns.tolist().index(c) for c in cat_cols if c in df.columns]
+        cat_idx  = [self.feature_cols.index(c) for c in cat_cols if c in self.feature_cols]
 
         self.model = self._build_model(cat_features=cat_idx)
-        self.model.fit(
-        X_train, y_train,
-        eval_set=(X_val, y_val),
-    # CatBoost face early stopping automat
-)
+        from sklearn.model_selection import train_test_split
+        X_train, X_val, y_train, y_val = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+        
+        try:
+            self.model.fit(
+                X_train, y_train,
+                eval_set=(X_val, y_val),
+                verbose=verbose
+            )
+        except Exception as e:
+            if verbose:
+                print(f"Failed to train CatBoost: {e}")
+            self.is_supervised = False
 
     # ── Prediction ─────────────────────────────────────────────────────────────
 
