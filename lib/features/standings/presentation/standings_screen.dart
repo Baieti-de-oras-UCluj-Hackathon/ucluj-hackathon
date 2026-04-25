@@ -129,10 +129,10 @@ Future<({List<_TeamStanding> championship, List<_TeamStanding> relegation})> _fe
   }
   final data = jsonDecode(resp.body) as Map<String, dynamic>;
 
-  final crMap = data['championship_round'] as Map<String, dynamic>?;
-  final rrMap = data['relegation_round'] as Map<String, dynamic>?;
-  final crRaw = (crMap?['standings'] as List?) ?? [];
-  final rrRaw = (rrMap?['standings'] as List?) ?? [];
+  final crRaw =
+      (data['championship_round'] as Map<String, dynamic>?)?['standings'] as List? ?? [];
+  final rrRaw =
+      (data['relegation_round'] as Map<String, dynamic>?)?['standings'] as List? ?? [];
 
   return (
     championship: crRaw.asMap().entries.map((e) =>

@@ -19,11 +19,15 @@ class AuthState extends ChangeNotifier {
         _session = session {
     if (runSessionRestore) {
       _tryRestoreSession().then((_) {
-        if (useFirebaseAuth) _bindFirebaseAuthListener();
+        if (useFirebaseAuth) {
+          _bindFirebaseAuthListener();
+        }
       });
     } else {
       _loading = false;
-      if (useFirebaseAuth) _bindFirebaseAuthListener();
+      if (useFirebaseAuth) {
+        _bindFirebaseAuthListener();
+      }
     }
   }
 
@@ -54,10 +58,11 @@ class AuthState extends ChangeNotifier {
     } catch (_) {
       await _session.signOut();
       _user = null;
+    } finally {
+      _loading = false;
+      await _setCrashlyticsUser();
+      notifyListeners();
     }
-    _loading = false;
-    await _setCrashlyticsUser();
-    notifyListeners();
   }
 
   Future<void> _setCrashlyticsUser() => setCrashlyticsAppUserId(_user?.id);
@@ -68,7 +73,7 @@ class AuthState extends ChangeNotifier {
     _firebaseAuthSub = FirebaseAuth.instance.authStateChanges().listen((fbUser) {
       if (fbUser != null) return;
       if (_localSignOutInProgress || _user == null) return;
-      AppLog.w('UmbraRo auth: Firebase session ended — clearing app session');
+      AppLog.w('UmbraRo auth: Firebase session ended - clearing app session');
       unawaited(_session.signOut());
       _user = null;
       _error = null;
@@ -95,24 +100,21 @@ class AuthState extends ChangeNotifier {
       }
       if (_user == null) {
         _error = 'Sign in failed';
-        _loading = false;
-        notifyListeners();
         return false;
       }
-      _loading = false;
       await _setCrashlyticsUser();
-      notifyListeners();
       return true;
     } on ApiException catch (e) {
       _error = e.message;
+      _user = null;
+      return false;
+    } catch (_) {
+      _error = 'Could not complete login. Check backend connection.';
+      _user = null;
+      return false;
+    } finally {
       _loading = false;
       notifyListeners();
-      return false;
-    } catch (e) {
-      _error = e.toString();
-      _loading = false;
-      notifyListeners();
-      return false;
     }
   }
 
@@ -132,24 +134,21 @@ class AuthState extends ChangeNotifier {
       }
       if (_user == null) {
         _error = 'Registration failed';
-        _loading = false;
-        notifyListeners();
         return false;
       }
-      _loading = false;
       await _setCrashlyticsUser();
-      notifyListeners();
       return true;
     } on ApiException catch (e) {
       _error = e.message;
+      _user = null;
+      return false;
+    } catch (_) {
+      _error = 'Could not complete registration. Check backend connection.';
+      _user = null;
+      return false;
+    } finally {
       _loading = false;
       notifyListeners();
-      return false;
-    } catch (e) {
-      _error = e.toString();
-      _loading = false;
-      notifyListeners();
-      return false;
     }
   }
 
@@ -161,8 +160,8 @@ class AuthState extends ChangeNotifier {
       _user = null;
       _error = null;
       _localSignOutInProgress = false;
+      await _setCrashlyticsUser();
+      notifyListeners();
     }
-    await _setCrashlyticsUser();
-    notifyListeners();
   }
 }
