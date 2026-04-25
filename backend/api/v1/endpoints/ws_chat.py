@@ -1,16 +1,18 @@
 import os
+import json
 import uuid
 import shutil
 from collections import defaultdict
 from typing import Dict, List
 from datetime import datetime, timezone
+from pydantic import BaseModel
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 
 from db.engine import async_session as session_factory
-from db.models import Message, User
+from db.models import Message, User, ChatGroup
 from core.security import decode_token, get_current_user
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -76,7 +78,26 @@ async def websocket_chat(websocket: WebSocket, channel_id: str, token: str = Que
             return
         
         team_name = user.team_name
-    
+        
+        # Security: If joining a group channel, verify membership
+        if channel_id.startswith("group_"):
+            group_uuid = channel_id.replace("group_", "")
+            stmt = select(ChatGroup).where(ChatGroup.id == group_uuid)
+            res = await session.execute(stmt)
+            group = res.scalar_one_or_none()
+            
+            if not group:
+                await websocket.close(code=1008)
+                return
+            
+            try:
+                members = json.loads(group.member_ids)
+                if user.id not in members:
+                    await websocket.close(code=1008)
+                    return
+            except:
+                await websocket.close(code=1008)
+                return
     await manager.connect(websocket, channel_id)
     
     # Fetch history inside its own transaction
@@ -150,6 +171,60 @@ async def get_team_users(
             "role": u.role
         } for u in users
     ]
+
+class CreateGroupRequest(BaseModel):
+    name: str
+    member_ids: List[str]
+
+@router.post("/groups")
+async def create_chat_group(
+    req: CreateGroupRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(_get_db)
+):
+    if not current_user.team_name:
+        raise HTTPException(status_code=400, detail="User must belong to a team")
+    
+    members = set(req.member_ids)
+    members.add(current_user.id)
+    
+    member_ids_str = json.dumps(list(members))
+    
+    new_group = ChatGroup(
+        team_name=current_user.team_name,
+        name=req.name,
+        member_ids=member_ids_str
+    )
+    session.add(new_group)
+    await session.commit()
+    await session.refresh(new_group)
+    return {"id": new_group.id, "name": new_group.name, "member_ids": list(members)}
+
+@router.get("/groups")
+async def get_chat_groups(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(_get_db)
+):
+    if not current_user.team_name:
+        return []
+    
+    stmt = select(ChatGroup).where(ChatGroup.team_name == current_user.team_name)
+    result = await session.execute(stmt)
+    all_groups = result.scalars().all()
+    
+    user_groups = []
+    for g in all_groups:
+        try:
+            members = json.loads(g.member_ids)
+            if current_user.id in members:
+                user_groups.append({
+                    "id": g.id,
+                    "name": g.name,
+                    "member_ids": members
+                })
+        except:
+            pass
+    return user_groups
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
