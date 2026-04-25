@@ -55,15 +55,29 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Center(
-                    child: SizedBox(
-                      height: 120,
-                      child: Image.asset(
-                        'assets/branding/logo_full.png',
-                        fit: BoxFit.contain,
-                      ),
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          height: 100,
+                          width: 100,
+                          child: Image.asset(
+                            'assets/teams/universitatea_cluj.png',
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                        const SizedBox(height: SpacingTokens.sm),
+                        Text(
+                          'U CLUJ',
+                          style: TypographyTokens.headline.copyWith(
+                            color: ColorTokens.accent,
+                            letterSpacing: 4,
+                            fontSize: 28,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: SpacingTokens.md),
+                  const SizedBox(height: SpacingTokens.sm),
                   Text(
                     'TACTICAL INTELLIGENCE PLATFORM',
                     textAlign: TextAlign.center,

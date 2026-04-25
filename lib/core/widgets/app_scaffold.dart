@@ -35,24 +35,43 @@ class AppScaffold extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  SizedBox(
-                    width: 28,
-                    height: 28,
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                    ),
                     child: Image.asset(
-                      'assets/branding/logo_icon.png',
+                      'assets/teams/universitatea_cluj.png',
                       fit: BoxFit.contain,
                     ),
                   ),
                   const SizedBox(width: SpacingTokens.xs),
-                  const Text(
-                    'umbraro',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 24,
-                      height: 1.0,
-                      letterSpacing: -1.2,
-                      color: ColorTokens.accent,
-                    ),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'U CLUJ',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 20,
+                          height: 1.0,
+                          letterSpacing: 1.5,
+                          color: ColorTokens.accent,
+                        ),
+                      ),
+                      Text(
+                        'TACTICAL INTELLIGENCE',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 8,
+                          height: 1.2,
+                          letterSpacing: 2.0,
+                          color: ColorTokens.textMuted,
+                        ),
+                      ),
+                    ],
                   ),
                   const Spacer(),
                   trailing ??
@@ -64,6 +83,7 @@ class AppScaffold extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: ColorTokens.surfaceHigh,
                             border: Border.all(color: ColorTokens.divider),
+                            borderRadius: BorderRadius.circular(4),
                           ),
                           child: const Icon(
                             Icons.person_outline,
@@ -75,7 +95,18 @@ class AppScaffold extends StatelessWidget {
                 ],
               ),
             ),
-            const Divider(height: 1, color: ColorTokens.divider),
+            Container(
+              height: 2,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    ColorTokens.accent,
+                    ColorTokens.accentStrong,
+                    Color(0x00000000),
+                  ],
+                ),
+              ),
+            ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(

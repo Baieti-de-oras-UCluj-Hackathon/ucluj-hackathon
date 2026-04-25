@@ -45,14 +45,31 @@ class DashboardScreen extends StatelessWidget {
           ),
           const SizedBox(height: SpacingTokens.lg),
           Center(
-            child: Text(
-              'VS FCSB',
-              style: TypographyTokens.displayHero.copyWith(fontSize: 58),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Image.asset('assets/teams/universitatea_cluj.png', fit: BoxFit.contain),
+                ),
+                const SizedBox(width: SpacingTokens.sm),
+                Text(
+                  'VS FCSB',
+                  style: TypographyTokens.displayHero.copyWith(fontSize: 46),
+                ),
+                const SizedBox(width: SpacingTokens.sm),
+                SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Image.asset('assets/teams/fcsb.png', fit: BoxFit.contain),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: SpacingTokens.sm),
           Center(
-            child: Text('LIGA 1 ROMANIA - ARENA NATIONALA',
+            child: Text('LIGA 1 ROMANIA - CLUJ ARENA',
                 style: TypographyTokens.sectionLabel),
           ),
           const SizedBox(height: SpacingTokens.xl),
@@ -78,7 +95,7 @@ class DashboardScreen extends StatelessWidget {
             delta: '0.42',
           ),
           const SizedBox(height: SpacingTokens.xl),
-          const AppCard(
+          AppCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -87,16 +104,16 @@ class DashboardScreen extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('FARUL', style: TypographyTokens.body),
-                    Text('3', style: TypographyTokens.headline),
+                    Text('FARUL CONSTANȚA', style: TypographyTokens.body),
+                    Text('1', style: TypographyTokens.headline),
                   ],
                 ),
                 SizedBox(height: SpacingTokens.xs),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('UMBRARO', style: TypographyTokens.body),
-                    Text('4', style: TypographyTokens.headline),
+                    Text('U CLUJ', style: TypographyTokens.body.copyWith(color: ColorTokens.accent, fontWeight: FontWeight.w700)),
+                    Text('2', style: TypographyTokens.headline.copyWith(color: ColorTokens.accent)),
                   ],
                 ),
               ],
@@ -114,19 +131,19 @@ class DashboardScreen extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('UMBRARO',
+                    Text('U CLUJ',
                         style: TypographyTokens.body
-                            .copyWith(fontWeight: FontWeight.w700)),
+                            .copyWith(fontWeight: FontWeight.w700, color: ColorTokens.accent)),
                     Text('VS', style: TypographyTokens.headline),
                   ],
                 ),
                 const SizedBox(height: SpacingTokens.xs),
-                Text('CFR CLUJ', style: TypographyTokens.body),
+                Text('FCSB', style: TypographyTokens.body),
               ],
             ),
           ),
           const SizedBox(height: SpacingTokens.md),
-          const AppCard(
+          AppCard(
             backgroundColor: ColorTokens.surface,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -136,12 +153,12 @@ class DashboardScreen extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('SEPSI OSK', style: TypographyTokens.body),
+                    Text('RAPID BUCUREȘTI', style: TypographyTokens.body),
                     Text('VS', style: TypographyTokens.headline),
                   ],
                 ),
                 SizedBox(height: SpacingTokens.xs),
-                Text('UMBRARO', style: TypographyTokens.body),
+                Text('U CLUJ', style: TypographyTokens.body.copyWith(color: ColorTokens.accent, fontWeight: FontWeight.w700)),
               ],
             ),
           ),

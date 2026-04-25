@@ -1,20 +1,28 @@
 import 'package:flutter/material.dart';
 
+/// U Cluj (Universitatea Cluj) color palette
+/// Official club colors: black, white, and golden yellow
 class ColorTokens {
   const ColorTokens._();
 
-  static const Color surface = Color(0xFF00132E);
-  static const Color surfaceLow = Color(0xFF001B3D);
-  static const Color surfaceHigh = Color(0xFF122A4C);
+  // Background surfaces – deep charcoal/black (U Cluj's dark identity)
+  static const Color surface = Color(0xFF0A0A0A);
+  static const Color surfaceLow = Color(0xFF141414);
+  static const Color surfaceHigh = Color(0xFF1E1E1E);
 
-  static const Color accent = Color(0xFFF2CA50);
-  static const Color accentStrong = Color(0xFFD4AF37);
-  static const Color onAccent = Color(0xFF00132E);
+  // Accent – U Cluj golden yellow (#F5C518 → slightly warmer)
+  static const Color accent = Color(0xFFF5C518);
+  static const Color accentStrong = Color(0xFFD4A800);
+  static const Color onAccent = Color(0xFF0A0A0A);
 
-  static const Color textPrimary = Color(0xFFD6E3FF);
-  static const Color textMuted = Color(0xFF8EA2C6);
-  static const Color divider = Color(0x4D4D4635);
+  // Secondary accent – U Cluj blue (used in badge details)
+  static const Color accentBlue = Color(0xFF003DA5);
 
-  static const Color negative = Color(0xFFFFBFB2);
-  static const Color positive = Color(0xFF7FBF8F);
+  // Text – pure white and grey
+  static const Color textPrimary = Color(0xFFFFFFFF);
+  static const Color textMuted = Color(0xFF9A9A9A);
+  static const Color divider = Color(0x33FFFFFF);
+
+  static const Color negative = Color(0xFFFF5252);
+  static const Color positive = Color(0xFF69F0AE);
 }
