@@ -146,6 +146,8 @@ class _MatchPreviewScreenState extends State<MatchPreviewScreen> {
       children: [
         _buildStatsRow(p),
         const SizedBox(height: SpacingTokens.xl),
+        _buildOpponentStatsRow(p),
+        const SizedBox(height: SpacingTokens.xl),
         if (p.headToHead.total > 0) ...[
           _buildH2H(p.headToHead),
           const SizedBox(height: SpacingTokens.xl),
@@ -164,6 +166,58 @@ class _MatchPreviewScreenState extends State<MatchPreviewScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('SQUAD ANALYTICS', style: TypographyTokens.sectionLabel),
+        const SizedBox(height: SpacingTokens.sm),
+        const Divider(color: ColorTokens.divider, height: 1),
+        const SizedBox(height: SpacingTokens.md),
+        Row(
+          children: [
+            _StatCell(
+                label: 'AVG FORM',
+                value: s.avgRecentForm.toStringAsFixed(1)),
+            _StatCell(
+                label: 'AVG PERF',
+                value: s.avgPerformanceScore.toStringAsFixed(1)),
+            _StatCell(
+                label: 'PASS %',
+                value: '${s.avgPassAccuracy.toStringAsFixed(0)}%'),
+            _StatCell(
+                label: 'DUEL %',
+                value: '${s.avgDuelWinRate.toStringAsFixed(0)}%'),
+          ],
+        ),
+        if (s.topScorer.isNotEmpty) ...[
+          const SizedBox(height: SpacingTokens.md),
+          Row(
+            children: [
+              Expanded(
+                child: _NameStatCell(
+                  label: 'TOP SCORER',
+                  name: s.topScorer,
+                  value: '${s.topScorerStat.toStringAsFixed(2)} G/90',
+                ),
+              ),
+              const SizedBox(width: SpacingTokens.sm),
+              if (s.topCreator.isNotEmpty)
+                Expanded(
+                  child: _NameStatCell(
+                    label: 'TOP CREATOR',
+                    name: s.topCreator,
+                    value: '${s.topCreatorStat.toStringAsFixed(2)} KP/90',
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildOpponentStatsRow(MatchPreviewResponse p) {
+    final s = p.opponentStats;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('${p.opponentName.toUpperCase()} RECENT FORM', style: TypographyTokens.sectionLabel),
         const SizedBox(height: SpacingTokens.sm),
         const Divider(color: ColorTokens.divider, height: 1),
         const SizedBox(height: SpacingTokens.md),

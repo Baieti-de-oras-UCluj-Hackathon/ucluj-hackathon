@@ -157,35 +157,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final pct = prob != null ? (prob * 100).round().toString() : '--';
     final opponent = next != null ? next.opponentOf(_myTeam).toUpperCase() : 'NEXT MATCH';
 
-    return Column(
-      children: [
-        Center(
-          child: Container(
-            width: 132,
-            height: 132,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: ColorTokens.accent, width: 4),
-            ),
-            child: Center(
-              child: Text(pct,
-                  style: TypographyTokens.displayHero.copyWith(fontSize: 52)),
+    return GestureDetector(
+      onTap: next != null ? () => _openMatchPreview(next) : null,
+      child: Column(
+        children: [
+          Center(
+            child: Container(
+              width: 132,
+              height: 132,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: ColorTokens.accent, width: 4),
+              ),
+              child: Center(
+                child: Text(pct,
+                    style: TypographyTokens.displayHero.copyWith(fontSize: 52)),
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: SpacingTokens.lg),
-        Center(
-          child: Text('VS $opponent',
-              style: TypographyTokens.displayHero.copyWith(fontSize: 46)),
-        ),
-        const SizedBox(height: SpacingTokens.sm),
-        Center(
-          child: Text(
-            next?.venue != null ? 'LIGA 1 · ${next!.venue!.toUpperCase()}' : 'LIGA 1 ROMANIA',
-            style: TypographyTokens.sectionLabel,
+          const SizedBox(height: SpacingTokens.lg),
+          Center(
+            child: Text('VS $opponent',
+                style: TypographyTokens.displayHero.copyWith(fontSize: 46)),
           ),
-        ),
-      ],
+          const SizedBox(height: SpacingTokens.sm),
+          Center(
+            child: Text(
+              next?.venue != null ? 'LIGA 1 · ${next!.venue!.toUpperCase()}' : 'LIGA 1 ROMANIA',
+              style: TypographyTokens.sectionLabel,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -146,6 +146,35 @@ class XiService:
                     team_stats[key] = str(row.get("shortName", ""))
                     team_stats[f"{key}_stat"] = round(float(row.get(stat, 0)), 2)
 
+        # Opponent aggregate stats
+        opponent_stats: Dict = {}
+        if opp_team_df is not None and not opp_team_df.empty:
+            def _opp_mean(col: str) -> float:
+                return round(float(opp_team_df[col].mean()), 2) if col in opp_team_df.columns else 0.0
+            
+            opponent_stats = {
+                "avg_performance_score": _opp_mean("performance_score"),
+                "avg_recent_form": _opp_mean("recent_form_score"),
+                "avg_pass_accuracy": round(_opp_mean("pass_accuracy"), 1),
+                "avg_duel_win_rate": round(_opp_mean("duel_win_rate"), 1),
+            }
+            for stat, key in [("per90_goals", "top_scorer"), ("per90_keyPasses", "top_creator")]:
+                if stat in opp_team_df.columns and not opp_team_df.empty:
+                    row = opp_team_df.nlargest(1, stat).iloc[0]
+                    opponent_stats[key] = str(row.get("shortName", ""))
+                    opponent_stats[f"{key}_stat"] = round(float(row.get(stat, 0)), 2)
+        else:
+            opponent_stats = {
+                "avg_performance_score": 0.0,
+                "avg_recent_form": 0.0,
+                "avg_pass_accuracy": 0.0,
+                "avg_duel_win_rate": 0.0,
+                "top_scorer": "",
+                "top_scorer_stat": 0.0,
+                "top_creator": "",
+                "top_creator_stat": 0.0,
+            }
+
         # Head-to-head from main fixtures CSV
         h2h: Dict = {"total": 0, "our_wins": 0, "draws": 0, "their_wins": 0,
                      "our_avg_goals": 0.0, "their_avg_goals": 0.0}
@@ -190,6 +219,7 @@ class XiService:
             "starting_xi": _fmt(result["xi"]),
             "bench": _fmt(result["bench"]),
             "team_stats": team_stats,
+            "opponent_stats": opponent_stats,
             "head_to_head": h2h,
         }
 

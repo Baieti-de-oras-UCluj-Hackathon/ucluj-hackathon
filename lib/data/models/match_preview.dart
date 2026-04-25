@@ -151,6 +151,7 @@ class MatchPreviewResponse {
   final List<MatchPreviewPlayer> startingXi;
   final List<MatchPreviewPlayer> bench;
   final MatchTeamStats teamStats;
+  final MatchTeamStats opponentStats;
   final H2HStats headToHead;
 
   MatchPreviewResponse({
@@ -160,6 +161,7 @@ class MatchPreviewResponse {
     required this.startingXi,
     required this.bench,
     required this.teamStats,
+    required this.opponentStats,
     required this.headToHead,
   });
 
@@ -180,6 +182,8 @@ class MatchPreviewResponse {
             [],
         teamStats: MatchTeamStats.fromJson(
             j['team_stats'] as Map<String, dynamic>? ?? {}),
+        opponentStats: MatchTeamStats.fromJson(
+            j['opponent_stats'] as Map<String, dynamic>? ?? {}),
         headToHead: H2HStats.fromJson(
             j['head_to_head'] as Map<String, dynamic>? ?? {}),
       );
