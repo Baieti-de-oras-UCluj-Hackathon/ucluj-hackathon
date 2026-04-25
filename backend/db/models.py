@@ -43,3 +43,13 @@ class Message(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True
     )
+
+class ChatGroup(Base):
+    __tablename__ = "chat_groups"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    team_name: Mapped[str] = mapped_column(String(120), index=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    member_ids: Mapped[str] = mapped_column(String(1000), nullable=False)

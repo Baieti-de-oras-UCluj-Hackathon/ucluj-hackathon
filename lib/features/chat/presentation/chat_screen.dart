@@ -97,6 +97,7 @@ class _ChatScreenState extends State<ChatScreen> {
   String _currentChannelId = '';
   String _currentChannelName = 'TEAM CHAT';
   List<Map<String, dynamic>> _teamUsers = [];
+  List<Map<String, dynamic>> _groups = [];
 
   String get _senderName {
     final user = widget.authState?.user;
@@ -120,14 +121,16 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       final api = widget.authState?.api;
       if (api == null) return;
-      final res = await api.getList('/chat/users');
+      final resUsers = await api.getList('/chat/users');
+      final resGroups = await api.getList('/chat/groups');
       if (mounted) {
         setState(() {
-          _teamUsers = List<Map<String, dynamic>>.from(res);
+          _teamUsers = List<Map<String, dynamic>>.from(resUsers);
+          _groups = List<Map<String, dynamic>>.from(resGroups);
         });
       }
     } catch (e) {
-      debugPrint('Error fetching users: $e');
+      debugPrint('Error fetching data: $e');
     }
   }
 
@@ -301,6 +304,14 @@ class _ChatScreenState extends State<ChatScreen> {
             name: 'TEAM CHAT',
             isSelected: _currentChannelId == genId,
           ),
+          ..._groups.map((g) {
+            final groupId = 'group_${g['id']}';
+            return _buildChannelChip(
+              id: groupId,
+              name: '#${g['name']}'.toUpperCase(),
+              isSelected: _currentChannelId == groupId,
+            );
+          }),
           ..._teamUsers.map((u) {
             final otherId = u['id'] as String;
             final myId = widget.authState?.user?.id ?? '';
@@ -316,8 +327,108 @@ class _ChatScreenState extends State<ChatScreen> {
               isSelected: _currentChannelId == dmId,
             );
           }),
+          Padding(
+            padding: const EdgeInsets.only(left: SpacingTokens.sm),
+            child: ActionChip(
+              label: const Icon(Icons.group_add, size: 18, color: ColorTokens.accent),
+              backgroundColor: Colors.transparent,
+              side: const BorderSide(color: ColorTokens.accent),
+              onPressed: _showCreateGroupDialog,
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  void _showCreateGroupDialog() {
+    final groupNameCtrl = TextEditingController();
+    final selectedUserIds = <String>{};
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setDialogState) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1E293B),
+            title: Text('CREATE GROUP', style: TypographyTokens.body.copyWith(color: Colors.white, fontSize: 18)),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: groupNameCtrl,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      hintText: 'Group Name',
+                      hintStyle: TextStyle(color: Colors.white54),
+                      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: ColorTokens.accent)),
+                      focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: ColorTokens.accent)),
+                    ),
+                  ),
+                  const SizedBox(height: SpacingTokens.md),
+                  Flexible(
+                    child: ListView(
+                      shrinkWrap: true,
+                      children: _teamUsers.map((u) {
+                        final id = u['id'] as String;
+                        final name = u['full_name']?.toString().isNotEmpty == true 
+                            ? u['full_name'].toString() 
+                            : u['email'].toString();
+                        final isSelected = selectedUserIds.contains(id);
+                        return CheckboxListTile(
+                          title: Text(name, style: const TextStyle(color: Colors.white)),
+                          value: isSelected,
+                          activeColor: ColorTokens.accent,
+                          checkColor: ColorTokens.onAccent,
+                          onChanged: (val) {
+                            setDialogState(() {
+                              if (val == true) {
+                                selectedUserIds.add(id);
+                              } else {
+                                selectedUserIds.remove(id);
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: ColorTokens.accent),
+                onPressed: () async {
+                  final name = groupNameCtrl.text.trim();
+                  if (name.isEmpty || selectedUserIds.isEmpty) return;
+                  
+                  try {
+                    final api = widget.authState?.api;
+                    if (api != null) {
+                      await api.post('/chat/groups', body: {
+                        'name': name,
+                        'member_ids': selectedUserIds.toList(),
+                      });
+                      await _fetchTeamUsers();
+                    }
+                  } catch (e) {
+                    debugPrint('Error creating group: $e');
+                  }
+                  if (mounted) Navigator.pop(ctx);
+                },
+                child: const Text('Create', style: TextStyle(color: ColorTokens.onAccent)),
+              ),
+            ],
+          );
+        });
+      },
     );
   }
 
