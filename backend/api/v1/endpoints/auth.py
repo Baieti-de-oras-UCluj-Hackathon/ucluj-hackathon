@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models import (
@@ -7,6 +7,7 @@ from core.models import (
     RefreshRequest,
     TokenResponse,
     UserResponse,
+    FirebaseRegisterRequest,
 )
 from core.security import get_current_user
 from db.engine import async_session as session_factory
@@ -46,6 +47,45 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(_get_db)):
 async def refresh(body: RefreshRequest, db: AsyncSession = Depends(_get_db)):
     svc = AuthService(db)
     tokens = await svc.refresh(body.refresh_token)
+    return TokenResponse(**tokens)
+
+
+def _bearer_id_token(request: Request) -> str:
+    h = request.headers.get("Authorization") or request.headers.get("authorization")
+    if not h or not h.lower().startswith("bearer "):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing Authorization bearer")
+    return h[7:].strip()
+
+
+@router.post("/firebase", response_model=TokenResponse)
+async def auth_firebase(request: Request, db: AsyncSession = Depends(_get_db)):
+    id_token = _bearer_id_token(request)
+    svc = AuthService(db)
+    try:
+        tokens = await svc.exchange_firebase_id_token(id_token)
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Firebase backend not configured (set FIREBASE_PROJECT_ID)",
+        ) from e
+    return TokenResponse(**tokens)
+
+
+@router.post("/register_with_firebase", response_model=TokenResponse)
+async def register_with_firebase(
+    request: Request,
+    body: FirebaseRegisterRequest,
+    db: AsyncSession = Depends(_get_db),
+):
+    id_token = _bearer_id_token(request)
+    svc = AuthService(db)
+    try:
+        tokens = await svc.register_with_firebase(id_token, body.team_name)
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Firebase backend not configured (set FIREBASE_PROJECT_ID)",
+        ) from e
     return TokenResponse(**tokens)
 
 

@@ -122,3 +122,7 @@ class UserResponse(BaseModel):
     role: str
     team_name: str | None = None
     is_active: bool
+
+
+class FirebaseRegisterRequest(BaseModel):
+    team_name: str = Field(..., min_length=2, description="Selected team for current user scope")
