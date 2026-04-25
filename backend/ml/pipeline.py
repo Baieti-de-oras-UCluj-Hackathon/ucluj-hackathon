@@ -27,12 +27,17 @@ import numpy as np
 
 # ── Local imports ──────────────────────────────────────────────────────────────
 sys.path.insert(0, str(Path(__file__).parent))
-from utils.feature_engineering import (
+from feature_engineering import (
     build_dataset_from_files,
     load_match_stats_json,
     build_player_feature_vector,
 )
-from models.xi_predictor import StartingXIPredictor, FORMATIONS
+from xi_predictor import StartingXIPredictor, FORMATIONS
+from drive_loader import (
+    download_drive_folder,
+    discover_data_paths,
+    DRIVE_FOLDER_ID,
+)
 
 
 # ─── Helper: load player profiles ─────────────────────────────────────────────
@@ -70,19 +75,23 @@ def load_team_assignments(filepath: str) -> Dict[int, int]:
 def run_pipeline(
     my_team_id: int,
     opponent_team_id: Optional[int],
-    match_stats_dir: str,
-    player_profiles_path: str,
+    match_stats_dir: str = "",
+    player_profiles_path: str = "",
     formation: str = "4-3-3",
     team_assignments_path: Optional[str] = None,
     output_path: Optional[str] = None,
     model_save_path: Optional[str] = None,
     model_load_path: Optional[str] = None,
     verbose: bool = True,
+    drive_folder_id: Optional[str] = None,
+    drive_cache_dir: Optional[str] = None,
+    force_redownload: bool = False,
 ) -> Dict:
     """
     Full end-to-end pipeline.
 
     Steps:
+      0. (Optional) Download training data from Google Drive
       1. Discover match stat files
       2. Load player profiles
       3. Build feature dataset
@@ -93,6 +102,21 @@ def run_pipeline(
 
     Returns dict with xi, bench, scores.
     """
+    # ── 0. Download from Google Drive (if requested) ───────────────────────
+    if drive_folder_id:
+        cache = download_drive_folder(drive_folder_id, drive_cache_dir, force_redownload)
+        discovered_stats_dir, discovered_profiles = discover_data_paths(cache)
+        if not match_stats_dir:
+            match_stats_dir = discovered_stats_dir
+        if not player_profiles_path and discovered_profiles:
+            player_profiles_path = discovered_profiles
+        if verbose:
+            print(f"[Drive] match_stats_dir  → {match_stats_dir}")
+            print(f"[Drive] player_profiles  → {player_profiles_path or '(none found)'}")
+
+    if not match_stats_dir:
+        raise ValueError("Provide --match-stats-dir or --drive-folder-id so the pipeline knows where to find data.")
+
     # ── 1. Find match files ────────────────────────────────────────────────
     match_files = sorted(glob.glob(os.path.join(match_stats_dir, "*.json")))
     if not match_files:
@@ -298,10 +322,19 @@ def main():
     parser.add_argument("--opponent-team-id", type=int, default=None)
     parser.add_argument("--formation", default="4-3-3",
                         choices=list(FORMATIONS.keys()))
-    parser.add_argument("--match-stats-dir", required=True,
-                        help="Directory containing match stats JSON files")
+    parser.add_argument("--match-stats-dir", default=None,
+                        help="Directory containing match stats JSON files (not needed when using --drive-folder-id)")
     parser.add_argument("--player-profiles", default=None,
                         help="Path to player profiles JSON")
+    parser.add_argument("--drive-folder-id", default=DRIVE_FOLDER_ID,
+                        help="Google Drive folder ID to download training data from "
+                             f"(default: {DRIVE_FOLDER_ID})")
+    parser.add_argument("--drive-cache-dir", default=None,
+                        help="Local directory to cache Drive downloads (default: ml/data/drive_cache)")
+    parser.add_argument("--force-redownload", action="store_true",
+                        help="Re-download Drive data even if a local cache exists")
+    parser.add_argument("--no-drive", action="store_true",
+                        help="Disable Google Drive download; use --match-stats-dir instead")
     parser.add_argument("--team-assignments", default=None,
                         help="Optional JSON mapping playerId -> teamId")
     parser.add_argument("--output", default=None,
@@ -316,7 +349,7 @@ def main():
     run_pipeline(
         my_team_id=args.my_team_id,
         opponent_team_id=args.opponent_team_id,
-        match_stats_dir=args.match_stats_dir,
+        match_stats_dir=args.match_stats_dir or "",
         player_profiles_path=args.player_profiles or "",
         formation=args.formation,
         team_assignments_path=args.team_assignments,
@@ -324,6 +357,9 @@ def main():
         model_save_path=args.save_model,
         model_load_path=args.load_model,
         verbose=True,
+        drive_folder_id=None if args.no_drive else args.drive_folder_id,
+        drive_cache_dir=args.drive_cache_dir,
+        force_redownload=args.force_redownload,
     )
 
 

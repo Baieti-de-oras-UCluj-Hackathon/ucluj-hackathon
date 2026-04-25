@@ -82,22 +82,22 @@ class StartingXIPredictor:
         """Return only the numeric feature columns that exist in df."""
         return [c for c in NUMERIC_FEATURES if c in df.columns]
 
-    def _build_model(self):
-        if self.model_type == "xgboost" and HAS_XGB:
-            return xgb.XGBClassifier(
-                n_estimators=200, max_depth=4, learning_rate=0.05,
-                subsample=0.8, use_label_encoder=False, eval_metric="logloss",
-                random_state=42,
-            )
-        elif self.model_type == "gbm":
-            return GradientBoostingClassifier(
-                n_estimators=150, max_depth=3, learning_rate=0.05, random_state=42
-            )
-        else:  # default: RandomForest, most robust for small datasets
-            return RandomForestClassifier(
-                n_estimators=200, max_depth=6, min_samples_leaf=2,
-                random_state=42, class_weight="balanced",
-            )
+    def _build_model(self, cat_features=None):
+        return CatBoostClassifier(
+        iterations=500,
+        learning_rate=0.05,
+        depth=6,
+        cat_features=cat_features or [],   # ← magie CatBoost
+        eval_metric="AUC",
+        early_stopping_rounds=50,
+        verbose=0,
+        random_seed=42,
+        # Ordered boosting — implicit activ, dar poți forța:
+        boosting_type="Ordered",           # ← previne leakage temporal
+        # Regularizare built-in:
+        l2_leaf_reg=3.0,
+        bagging_temperature=0.8,
+    )
 
     def _composite_score(self, row: pd.Series) -> float:
         """
@@ -170,25 +170,15 @@ class StartingXIPredictor:
             labels: Binary series — 1 if player started, 0 if not.
                     If None, uses unsupervised scoring.
         """
-        self.feature_cols = self._get_feature_cols(df)
-        X = df[self.feature_cols].fillna(0).values
+        cat_cols = ["role", "role_group", "positions_played"]
+        cat_idx  = [df.columns.tolist().index(c) for c in cat_cols if c in df.columns]
 
-        if labels is not None and labels.sum() >= 10:
-            self.is_supervised = True
-            self.model = self._build_model()
-            X_scaled = self.scaler.fit_transform(X)
-            cv_scores = cross_val_score(self.model, X_scaled, labels, cv=3, scoring="roc_auc")
-            self.model.fit(X_scaled, labels)
-            if verbose:
-                print(f"[Supervised] Trained {type(self.model).__name__}")
-                print(f"  CV AUC: {cv_scores.mean():.3f} ± {cv_scores.std():.3f}")
-        else:
-            self.is_supervised = False
-            self.scaler.fit(X)
-            if verbose:
-                print("[Unsupervised] Using composite scoring (no start/bench labels found)")
-
-        return self
+        self.model = self._build_model(cat_features=cat_idx)
+        self.model.fit(
+        X_train, y_train,
+        eval_set=(X_val, y_val),
+    # CatBoost face early stopping automat
+)
 
     # ── Prediction ─────────────────────────────────────────────────────────────
 
