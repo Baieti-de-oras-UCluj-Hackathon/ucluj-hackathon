@@ -26,19 +26,14 @@ class StartingXiScreen extends StatefulWidget {
 class _StartingXiScreenState extends State<StartingXiScreen> {
   final _xiRepository = XiRepository();
   bool _isLoading = false;
+  bool _isLoadingOpponents = true;
   XiPredictionResponse? _prediction;
   String _selectedFormation = '4-3-3';
   String? _errorMessage;
+  String? _opponentsError;
 
-  // Placeholder teams (hardcoded for now as requested)
-  int? _selectedOpponentId = 8164; // Example: FCSB
-  final Map<int, String> _opponents = {
-    8164: 'FCSB',
-    11566: 'CFR Cluj',
-    11572: 'Rapid București',
-    11568: 'Dinamo București',
-    99999: 'Generic Opponent',
-  };
+  int? _selectedOpponentId;
+  final Map<int, String> _opponents = {};
 
   final List<String> _formations = [
     '4-3-3',
@@ -50,7 +45,45 @@ class _StartingXiScreenState extends State<StartingXiScreen> {
     '5-4-1',
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadOpponentOptions();
+  }
+
+  Future<void> _loadOpponentOptions() async {
+    try {
+      final opponents = await _xiRepository.fetchOpponentOptions();
+      if (!mounted) return;
+
+      setState(() {
+        _opponents
+          ..clear()
+          ..addEntries(opponents.map((o) => MapEntry(o.id, o.name)));
+        _selectedOpponentId =
+            opponents.isNotEmpty ? opponents.first.id : null;
+        _isLoadingOpponents = false;
+        _opponentsError = opponents.isEmpty
+            ? 'No opponent options available.'
+            : null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingOpponents = false;
+        _opponentsError = 'Could not load opponent teams: $e';
+      });
+    }
+  }
+
   Future<void> _generateXi() async {
+    if (_selectedOpponentId == null) {
+      setState(() {
+        _errorMessage = 'Please select an opponent team first.';
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -141,25 +174,48 @@ class _StartingXiScreenState extends State<StartingXiScreen> {
         const SizedBox(height: SpacingTokens.md),
         Text('OPPONENT', style: TypographyTokens.sectionLabel),
         const SizedBox(height: SpacingTokens.xs),
-        Container(
-          color: ColorTokens.surface,
-          padding: const EdgeInsets.symmetric(horizontal: SpacingTokens.md),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<int>(
-              isExpanded: true,
-              dropdownColor: ColorTokens.surface,
-              value: _selectedOpponentId,
-              style: TypographyTokens.body.copyWith(color: ColorTokens.textPrimary),
-              onChanged: (v) {
-                if (v != null) setState(() => _selectedOpponentId = v);
-              },
-              items: _opponents.entries.map((e) => DropdownMenuItem(
-                value: e.key,
-                child: Text(e.value),
-              )).toList(),
+        if (_isLoadingOpponents)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: SpacingTokens.sm),
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: ColorTokens.accent,
+              ),
+            ),
+          )
+        else if (_opponentsError != null)
+          Text(
+            _opponentsError!,
+            style: TypographyTokens.body.copyWith(color: ColorTokens.negative),
+          )
+        else
+          Container(
+            color: ColorTokens.surface,
+            padding: const EdgeInsets.symmetric(horizontal: SpacingTokens.md),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<int>(
+                isExpanded: true,
+                dropdownColor: ColorTokens.surface,
+                value: _selectedOpponentId,
+                style: TypographyTokens.body
+                    .copyWith(color: ColorTokens.textPrimary),
+                onChanged: (v) {
+                  if (v != null) setState(() => _selectedOpponentId = v);
+                },
+                items: _opponents.entries
+                    .map(
+                      (e) => DropdownMenuItem(
+                        value: e.key,
+                        child: Text(e.value),
+                      ),
+                    )
+                    .toList(),
+              ),
             ),
           ),
-        ),
       ],
     );
   }

@@ -61,3 +61,40 @@ class XiService:
         )
         
         return _format_output(result, my_team_id, opponent_team_id)
+
+    def list_opponents(self, min_players: int = 20) -> list[dict]:
+        """Return opponent options inferred from loaded XI feature data."""
+        df = self._get_feature_df()
+        if df.empty or "teamId" not in df.columns:
+            return []
+
+        my_team_id = 11571
+        team_counts = (
+            df["teamId"]
+            .dropna()
+            .astype(int)
+            .value_counts()
+        )
+
+        # Keep only teams with enough player records to be meaningful options.
+        candidate_ids = [
+            int(team_id)
+            for team_id, count in team_counts.items()
+            if int(team_id) != my_team_id and int(count) >= min_players
+        ]
+
+        known_names = {
+            8164: "FCSB",
+            11566: "CFR Cluj",
+            11572: "Rapid Bucuresti",
+            11568: "Dinamo Bucuresti",
+        }
+
+        opponents = [
+            {
+                "id": team_id,
+                "name": known_names.get(team_id, f"Team {team_id}"),
+            }
+            for team_id in candidate_ids
+        ]
+        return sorted(opponents, key=lambda item: item["name"])
