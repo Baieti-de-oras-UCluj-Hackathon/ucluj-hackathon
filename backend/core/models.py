@@ -98,6 +98,7 @@ class ChatResponse(BaseModel):
 class RegisterRequest(BaseModel):
     email: str = Field(..., min_length=3, description="User email")
     password: str = Field(..., min_length=8, description="Password (min 8 chars)")
+    full_name: str = Field(..., min_length=2, description="User full name / username")
     team_name: str = Field(..., min_length=2, description="Selected team for current user scope")
 
 
@@ -119,6 +120,7 @@ class TokenResponse(BaseModel):
 class UserResponse(BaseModel):
     id: str
     email: str
+    full_name: str | None = None
     role: str
     team_name: str | None = None
     is_active: bool

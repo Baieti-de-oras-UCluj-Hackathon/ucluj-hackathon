@@ -103,7 +103,7 @@ async def websocket_chat(websocket: WebSocket, token: str = Query(...)):
             async with session_factory() as session:
                 new_msg = Message(
                     team_name=team_name,
-                    author_name=user.email,  # Can use full name if it exists, fallback to email
+                    author_name=user.full_name or user.email,
                     content=data.get("content"),
                     file_url=data.get("file_url"),
                     file_type=data.get("file_type")

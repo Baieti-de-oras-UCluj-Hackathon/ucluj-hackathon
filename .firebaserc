@@ -1,6 +1,6 @@
 {
   "projects": {
-    "baietii": "uhack26-8050e"
+    "default": "hackatonu"
   },
   "targets": {},
   "etags": {}

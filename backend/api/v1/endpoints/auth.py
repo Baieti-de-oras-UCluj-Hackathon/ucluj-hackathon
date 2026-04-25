@@ -26,10 +26,11 @@ async def _get_db():
 @router.post("/register", response_model=UserResponse, status_code=201)
 async def register(body: RegisterRequest, db: AsyncSession = Depends(_get_db)):
     svc = AuthService(db)
-    user = await svc.register(body.email, body.password, body.team_name)
+    user = await svc.register(body.email, body.password, body.full_name, body.team_name)
     return UserResponse(
         id=user.id,
         email=user.email,
+        full_name=user.full_name,
         role=user.role,
         team_name=user.team_name,
         is_active=user.is_active,
@@ -94,6 +95,7 @@ async def me(user: User = Depends(get_current_user)):
     return UserResponse(
         id=user.id,
         email=user.email,
+        full_name=user.full_name,
         role=user.role,
         team_name=user.team_name,
         is_active=user.is_active,

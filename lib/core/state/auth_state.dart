@@ -121,6 +121,7 @@ class AuthState extends ChangeNotifier {
   Future<bool> register({
     required String email,
     required String password,
+    required String fullName,
     required String teamName,
   }) async {
     _error = null;
@@ -128,9 +129,11 @@ class AuthState extends ChangeNotifier {
     notifyListeners();
     try {
       if (useFirebaseAuth) {
+        // Firebase auth might need updates too if we want to store full name there
+        // For now, let's assume we focus on the custom auth flow or update this as needed
         _user = await _session.signUpWithFirebase(email, password, teamName);
       } else {
-        _user = await _session.signUpWithPassword(email, password, teamName);
+        _user = await _session.signUpWithPassword(email, password, fullName, teamName);
       }
       if (_user == null) {
         _error = 'Registration failed';
