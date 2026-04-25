@@ -9,6 +9,7 @@ import '../../../core/widgets/app_scaffold.dart';
 
 import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../../core/config/app_config.dart';
 
 // ─── Model ────────────────────────────────────────────────────────────────────
@@ -19,12 +20,16 @@ class _Msg {
     required this.text,
     required this.sender,
     required this.time,
+    this.fileUrl,
+    this.fileType,
   });
 
   final String id;
   final String text;
   final String sender;
   final String time;
+  final String? fileUrl;
+  final String? fileType;
 
   factory _Msg.fromJson(Map<String, dynamic> json) {
     String timeStr = _now();
@@ -40,6 +45,8 @@ class _Msg {
       text: json['content'] as String? ?? '',
       sender: _formatSender(json['author_name'] as String? ?? 'Unknown'),
       time: timeStr,
+      fileUrl: json['file_url'] as String?,
+      fileType: json['file_type'] as String?,
     );
   }
 
@@ -79,12 +86,11 @@ class _ChatScreenState extends State<ChatScreen> {
   final _scroll = ScrollController();
   final _msgs = <_Msg>[];
   bool _typing = false;
+  bool _uploading = false;
   WebSocketChannel? _channel;
 
   String get _senderName {
     final user = widget.authState?.user;
-    final team = user?.teamName ?? '';
-    if (team.isNotEmpty) return team.toUpperCase();
     final email = user?.email ?? '';
     return email.split('@').first.toUpperCase();
   }
@@ -180,6 +186,47 @@ class _ChatScreenState extends State<ChatScreen> {
     _ctrl.clear();
   }
 
+  Future<void> _pickFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final file = result.files.first;
+    if (file.bytes == null) return;
+
+    setState(() => _uploading = true);
+    try {
+      final api = widget.authState?.api;
+      if (api == null) return;
+
+      final res = await api.uploadMultipart(
+        '/chat/upload',
+        fileBytes: file.bytes!,
+        fileName: file.name,
+      );
+
+      final fileUrl = res['url'] as String?;
+      final fileType = res['type'] as String?;
+
+      if (fileUrl != null && _channel != null) {
+        _channel!.sink.add(jsonEncode({
+          'content': _ctrl.text.trim().isNotEmpty ? _ctrl.text.trim() : null,
+          'file_url': fileUrl,
+          'file_type': fileType,
+        }));
+        _ctrl.clear();
+      }
+    } catch (e) {
+      debugPrint('Upload error: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _uploading = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
@@ -221,7 +268,10 @@ class _ChatScreenState extends State<ChatScreen> {
       padding: const EdgeInsets.symmetric(vertical: SpacingTokens.md),
       itemCount: _msgs.length,
       separatorBuilder: (_, __) => const SizedBox(height: SpacingTokens.md),
-      itemBuilder: (_, i) => _Bubble(msg: _msgs[i]),
+      itemBuilder: (_, i) => _Bubble(
+        msg: _msgs[i],
+        isMe: _msgs[i].sender == _senderName,
+      ),
     );
   }
 
@@ -251,6 +301,16 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       child: Row(
         children: [
+          IconButton(
+            icon: _uploading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: ColorTokens.accent))
+                : const Icon(Icons.attach_file, color: ColorTokens.textMuted),
+            onPressed: _uploading ? null : _pickFile,
+          ),
           Expanded(
             child: TextField(
               controller: _ctrl,
@@ -325,16 +385,21 @@ class _Header extends StatelessWidget {
 // ─── Message bubble ───────────────────────────────────────────────────────────
 
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.msg});
+  const _Bubble({required this.msg, required this.isMe});
   final _Msg msg;
+  final bool isMe;
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
+      crossAxisAlignment:
+          isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(right: SpacingTokens.xxs),
+          padding: EdgeInsets.only(
+            right: isMe ? SpacingTokens.xxs : 0,
+            left: isMe ? 0 : SpacingTokens.xxs,
+          ),
           child: Text(
             '${msg.sender}  ·  ${msg.time}',
             style: TypographyTokens.sectionLabel
@@ -343,7 +408,7 @@ class _Bubble extends StatelessWidget {
         ),
         const SizedBox(height: SpacingTokens.xxs),
         Align(
-          alignment: Alignment.centerRight,
+          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
           child: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.78,
@@ -353,22 +418,61 @@ class _Bubble extends StatelessWidget {
                 horizontal: SpacingTokens.md,
                 vertical: SpacingTokens.sm,
               ),
-              decoration: const BoxDecoration(
-                color: Color(0xFF0D2340),
+              decoration: BoxDecoration(
+                color: isMe ? const Color(0xFF0D2340) : const Color(0xFF1E293B),
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(8),
+                  topRight: const Radius.circular(8),
+                  bottomLeft: isMe ? const Radius.circular(8) : Radius.zero,
+                  bottomRight: isMe ? Radius.zero : const Radius.circular(8),
+                ),
                 border: Border(
-                  right: BorderSide(color: ColorTokens.accent, width: 2),
+                  right: isMe
+                      ? const BorderSide(color: ColorTokens.accent, width: 2)
+                      : BorderSide.none,
+                  left: isMe
+                      ? BorderSide.none
+                      : const BorderSide(color: ColorTokens.accent, width: 2),
                 ),
               ),
-              child: Text(
-                msg.text,
-                style: TypographyTokens.body
-                    .copyWith(color: ColorTokens.textPrimary, fontSize: 14),
+              child: Column(
+                crossAxisAlignment:
+                    isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                children: [
+                  if (msg.fileUrl != null)
+                    Padding(
+                      padding: EdgeInsets.only(
+                          bottom: msg.text.isNotEmpty ? SpacingTokens.sm : 0),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Image.network(
+                          _buildFileUrl(msg.fileUrl!),
+                          width: 200,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(
+                              Icons.broken_image,
+                              color: ColorTokens.textMuted),
+                        ),
+                      ),
+                    ),
+                  if (msg.text.isNotEmpty)
+                    Text(
+                      msg.text,
+                      style: TypographyTokens.body.copyWith(
+                          color: ColorTokens.textPrimary, fontSize: 14),
+                    ),
+                ],
               ),
             ),
           ),
         ),
       ],
     );
+  }
+
+  static String _buildFileUrl(String path) {
+    final base = AppConfig.apiBaseUrl.replaceAll('/api/v1', '');
+    return '$base$path';
   }
 }
 
