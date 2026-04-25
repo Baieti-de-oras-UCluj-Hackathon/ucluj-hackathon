@@ -16,6 +16,8 @@ async def lifespan(app: FastAPI):
     app.state.df = load_all_data(settings.resolved_data_path)
     app.state.stadium_map = load_stadium_map(settings.resolved_stadium_map_path)
     app.state.bundle = load_model_bundle(settings.resolved_model_path)
+    from services.xi_service import XiService
+    app.state.xi_service = XiService(model_path="ml/xi_model.pkl", data_dir="ml/data/drive_cache")
     yield
 
 
@@ -26,9 +28,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+origins = [
+    "http://localhost:52757",
+    "http://127.0.0.1:8000",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origin_list,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

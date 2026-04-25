@@ -20,3 +20,5 @@ Desktop.ini
 __pycache__/
 .ipynb_checkpoints/
 sportsradar_key.txt
+backend/ml/data/drive_cache/
+backend/ml/data/drive_cache/

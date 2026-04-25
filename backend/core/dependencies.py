@@ -18,3 +18,6 @@ def get_feature_service(request: Request) -> FeatureService:
 
 def get_stadium_map(request: Request) -> dict[str, str]:
     return request.app.state.stadium_map
+
+def get_xi_service(request: Request):
+    return request.app.state.xi_service
