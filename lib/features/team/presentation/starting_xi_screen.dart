@@ -199,6 +199,7 @@ class _StartingXiScreenState extends State<StartingXiScreen> {
               child: DropdownButton<int>(
                 isExpanded: true,
                 dropdownColor: ColorTokens.surface,
+                menuMaxHeight: 240,
                 value: _selectedOpponentId,
                 style: TypographyTokens.body
                     .copyWith(color: ColorTokens.textPrimary),
