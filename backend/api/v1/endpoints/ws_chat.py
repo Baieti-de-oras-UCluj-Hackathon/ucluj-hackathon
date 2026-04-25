@@ -88,6 +88,7 @@ async def websocket_chat(websocket: WebSocket, token: str = Query(...)):
         for msg in history:
             await websocket.send_json({
                 "id": msg.id,
+                "author_id": msg.author_id,
                 "author_name": msg.author_name,
                 "content": msg.content,
                 "file_url": msg.file_url,
@@ -103,7 +104,8 @@ async def websocket_chat(websocket: WebSocket, token: str = Query(...)):
             async with session_factory() as session:
                 new_msg = Message(
                     team_name=team_name,
-                    author_name=user.full_name or user.email,
+                    author_id=user.id,
+                    author_name=(user.full_name.strip() if user.full_name and user.full_name.strip() else None) or user.email.split('@')[0],
                     content=data.get("content"),
                     file_url=data.get("file_url"),
                     file_type=data.get("file_type")
@@ -116,6 +118,7 @@ async def websocket_chat(websocket: WebSocket, token: str = Query(...)):
                 
                 await manager.broadcast_to_team({
                     "id": new_msg.id,
+                    "author_id": new_msg.author_id,
                     "author_name": new_msg.author_name,
                     "content": new_msg.content,
                     "file_url": new_msg.file_url,

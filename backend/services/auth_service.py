@@ -158,6 +158,7 @@ class AuthService:
             password_hash=hash_password(secrets.token_urlsafe(48)),
             team_name=clean_team_name,
             firebase_uid=uid,
+            full_name=claims.get("name"),
         )
         self._session.add(user)
         await self._session.commit()

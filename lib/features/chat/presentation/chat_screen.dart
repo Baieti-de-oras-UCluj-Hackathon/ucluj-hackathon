@@ -17,6 +17,7 @@ import '../../../core/config/app_config.dart';
 class _Msg {
   _Msg({
     required this.id,
+    required this.senderId,
     required this.text,
     required this.sender,
     required this.time,
@@ -25,6 +26,7 @@ class _Msg {
   });
 
   final String id;
+  final String senderId;
   final String text;
   final String sender;
   final String time;
@@ -42,6 +44,7 @@ class _Msg {
     }
     return _Msg(
       id: json['id'] as String? ?? '',
+      senderId: json['author_id'] as String? ?? '',
       text: json['content'] as String? ?? '',
       sender: _formatSender(json['author_name'] as String? ?? 'Unknown'),
       time: timeStr,
@@ -51,8 +54,10 @@ class _Msg {
   }
 
   static String _formatSender(String raw) {
+    if (raw.isEmpty) return 'UNKNOWN';
     if (raw.contains('@')) {
-      return raw.split('@').first.toUpperCase();
+      String local = raw.split('@').first;
+      return local.replaceAll('.', ' ').replaceAll('_', ' ').toUpperCase();
     }
     return raw.toUpperCase();
   }
@@ -91,6 +96,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
   String get _senderName {
     final user = widget.authState?.user;
+    final name = user?.fullName;
+    if (name != null && name.isNotEmpty) return name.toUpperCase();
     final email = user?.email ?? '';
     return email.split('@').first.toUpperCase();
   }
@@ -176,6 +183,7 @@ class _ChatScreenState extends State<ChatScreen> {
       setState(() {
         _msgs.add(_Msg(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
+            senderId: widget.authState?.user?.id ?? '',
             text: text,
             sender: _senderName,
             time: _Msg._now()));
@@ -270,7 +278,7 @@ class _ChatScreenState extends State<ChatScreen> {
       separatorBuilder: (_, __) => const SizedBox(height: SpacingTokens.md),
       itemBuilder: (_, i) => _Bubble(
         msg: _msgs[i],
-        isMe: _msgs[i].sender == _senderName,
+        isMe: _msgs[i].senderId == (widget.authState?.user?.id ?? ''),
       ),
     );
   }

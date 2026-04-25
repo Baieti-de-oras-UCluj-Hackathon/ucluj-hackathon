@@ -20,8 +20,15 @@ async def init_db():
         if "firebase_uid" not in columns:
             await conn.execute(text("ALTER TABLE users ADD COLUMN firebase_uid VARCHAR(128)"))
             await conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_firebase_uid ON users (firebase_uid)"))
+        if "full_name" not in columns:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN full_name VARCHAR(255)"))
 
         tables = {r[0] for r in (await conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))).fetchall()}
+        if "messages" in tables:
+            msg_cols = {r[1] for r in (await conn.execute(text("PRAGMA table_info(messages)"))).fetchall()}
+            if "author_id" not in msg_cols:
+                await conn.execute(text("ALTER TABLE messages ADD COLUMN author_id VARCHAR(36) DEFAULT 'legacy-id'"))
+                await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_messages_author_id ON messages (author_id)"))
         if "sr_standings" in tables:
             sr_cols = {r[1] for r in (await conn.execute(text("PRAGMA table_info(sr_standings)"))).fetchall()}
             if "group_name" not in sr_cols:
