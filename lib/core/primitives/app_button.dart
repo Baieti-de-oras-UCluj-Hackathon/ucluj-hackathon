@@ -7,18 +7,18 @@ import '../theme/typography_tokens.dart';
 class AppButton extends StatelessWidget {
   const AppButton.primary({
     required this.label,
-    required this.onPressed,
+    this.onPressed,
     super.key,
   }) : isPrimary = true;
 
   const AppButton.secondary({
     required this.label,
-    required this.onPressed,
+    this.onPressed,
     super.key,
   }) : isPrimary = false;
 
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool isPrimary;
 
   @override

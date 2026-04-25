@@ -7,6 +7,7 @@ import '../../../core/theme/typography_tokens.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/app_scaffold.dart';
 import '../../match_intelligence/presentation/match_intelligence_screen.dart';
+import 'starting_xi_screen.dart';
 
 class TeamScreen extends StatelessWidget {
   const TeamScreen({
@@ -138,6 +139,33 @@ class TeamScreen extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: SpacingTokens.md),
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => StartingXiScreen(
+                    onTabSelected: onTabSelected,
+                  ),
+                ),
+              );
+            },
+            child: Container(
+              color: ColorTokens.surface,
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: SpacingTokens.md,
+                vertical: SpacingTokens.lg,
+              ),
+              child: Text(
+                'AI STARTING XI GENERATOR',
+                style: TypographyTokens.sectionLabel.copyWith(
+                  color: ColorTokens.accent,
+                ),
+                textAlign: TextAlign.center,
+              ),
             ),
           ),
         ],
