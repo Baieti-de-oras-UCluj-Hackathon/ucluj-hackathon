@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:umbraro/core/config/app_config.dart';
 
 class ApiClient {
   ApiClient({String? baseUrl})
-      : _baseUrl = baseUrl ?? _defaultBaseUrl;
+      : _baseUrl = baseUrl ?? AppConfig.apiBaseUrl;
 
-  static const String _defaultBaseUrl = 'http://localhost:8000/api/v1';
   final String _baseUrl;
   String? _accessToken;
   String? _refreshToken;
@@ -29,24 +29,35 @@ class ApiClient {
         if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
       };
 
+  Map<String, String> _headersFor({String? firebaseIdToken}) {
+    if (firebaseIdToken != null) {
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $firebaseIdToken',
+      };
+    }
+    return _headers;
+  }
+
   Future<Map<String, dynamic>> get(String path) async {
     final response = await http.get(
       Uri.parse('$_baseUrl$path'),
       headers: _headers,
     );
-    return _handle(response);
+    return _handleMap(response);
   }
 
   Future<Map<String, dynamic>> post(
     String path, {
     Map<String, dynamic>? body,
+    String? firebaseIdToken,
   }) async {
     final response = await http.post(
       Uri.parse('$_baseUrl$path'),
-      headers: _headers,
+      headers: _headersFor(firebaseIdToken: firebaseIdToken),
       body: body != null ? jsonEncode(body) : null,
     );
-    return _handle(response);
+    return _handleMap(response);
   }
 
   Future<List<dynamic>> getList(String path) async {
@@ -57,30 +68,55 @@ class ApiClient {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return jsonDecode(response.body) as List<dynamic>;
     }
-    throw ApiException(response.statusCode, _extractDetail(response.body));
+    _throwError(response);
   }
 
-  Map<String, dynamic> _handle(http.Response response) {
-    final decoded = jsonDecode(response.body);
+  Map<String, dynamic> _handleMap(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      return decoded as Map<String, dynamic>;
+      if (response.body.isEmpty) return {};
+      return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    throw ApiException(response.statusCode, _extractDetail(response.body));
+    _throwError(response);
   }
 
-  String _extractDetail(String body) {
+  Never _throwError(http.Response response) {
+    Object? detail;
+    String message = response.body;
     try {
-      final map = jsonDecode(body);
-      if (map is Map && map.containsKey('detail')) return map['detail'].toString();
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map && decoded.containsKey('detail')) {
+        final d = decoded['detail'];
+        detail = d;
+        if (d is String) {
+          message = d;
+        } else if (d is Map) {
+          message = d['message'] as String? ?? d['code'] as String? ?? d.toString();
+        } else {
+          message = d.toString();
+        }
+      } else {
+        message = response.body;
+      }
     } catch (_) {}
-    return body;
+    throw ApiException(response.statusCode, message, detail: detail);
   }
 }
 
 class ApiException implements Exception {
-  ApiException(this.statusCode, this.message);
+  ApiException(this.statusCode, this.message, {this.detail});
   final int statusCode;
   final String message;
+  final Object? detail;
+
+  bool get isNeedsRegistration {
+    if (detail is Map) {
+      return (detail as Map)['code'] == 'NEEDS_REGISTRATION';
+    }
+    if (message == 'NEEDS_REGISTRATION' || message.contains('NEEDS_REGISTRATION')) {
+      return true;
+    }
+    return false;
+  }
 
   @override
   String toString() => 'ApiException($statusCode): $message';

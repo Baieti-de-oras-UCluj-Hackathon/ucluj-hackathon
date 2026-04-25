@@ -17,6 +17,9 @@ async def init_db():
         columns = {row[1] for row in result.fetchall()}
         if "team_name" not in columns:
             await conn.execute(text("ALTER TABLE users ADD COLUMN team_name VARCHAR(120)"))
+        if "firebase_uid" not in columns:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN firebase_uid VARCHAR(128)"))
+            await conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_firebase_uid ON users (firebase_uid)"))
 
         tables = {r[0] for r in (await conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))).fetchall()}
         if "sr_standings" in tables:

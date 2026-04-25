@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     sportradar_api_key: str = ""
     sportradar_base_url: str = "https://api.sportradar.com/soccer/trial/v4/en"
     sportradar_rate_delay: float = 1.1
+    firebase_project_id: str = ""
+    firebase_credentials_path: str = ""
 
     @property
     def cors_origin_list(self) -> list[str]:
