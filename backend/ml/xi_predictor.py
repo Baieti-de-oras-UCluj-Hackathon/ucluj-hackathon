@@ -108,17 +108,52 @@ class StartingXIPredictor:
     def _composite_score(self, row: pd.Series) -> float:
         """
         Unsupervised composite score — used when no labeled data is available.
-        Blends performance score, recent form, and efficiency metrics.
+        Blends performance score, recent form, and efficiency metrics based on position.
         """
-        return (
+        base_score = (
             0.40 * (row.get("performance_score", 0) or 0)
             + 0.25 * (row.get("recent_form_score", 0) or 0)
-            + 0.10 * (row.get("pass_accuracy", 0) or 0) / 100
-            + 0.10 * (row.get("duel_win_rate", 0) or 0) / 100
-            + 0.05 * (row.get("def_action_success", 0) or 0) / 100
             + 0.05 * min((row.get("matches_played", 0) or 0) / 20, 1.0)  # experience cap
-            + 0.05 * (row.get("shot_accuracy", 0) or 0) / 100
         )
+        
+        role = str(row.get("role_group", "")).upper()
+        
+        if role == "GK":
+            # Goalkeepers: focus on saves and clean sheets
+            return base_score + (
+                0.15 * min((row.get("per90_gkSaves", 0) or 0) / 3.0, 1.0)
+                + 0.10 * min((row.get("per90_gkCleanSheets", 0) or 0) / 0.5, 1.0)
+                + 0.05 * (row.get("pass_accuracy", 0) or 0) / 100
+            )
+        elif role == "DEF":
+            # Defenders: focus on defensive actions, duels, and passing
+            return base_score + (
+                0.15 * (row.get("def_action_success", 0) or 0) / 100
+                + 0.10 * (row.get("duel_win_rate", 0) or 0) / 100
+                + 0.05 * (row.get("pass_accuracy", 0) or 0) / 100
+            )
+        elif role == "MID":
+            # Midfielders: focus on passing, duels, and progression
+            return base_score + (
+                0.15 * (row.get("pass_accuracy", 0) or 0) / 100
+                + 0.10 * (row.get("duel_win_rate", 0) or 0) / 100
+                + 0.05 * min((row.get("per90_keyPasses", 0) or 0) / 2.0, 1.0)
+            )
+        elif role == "FWD":
+            # Forwards: focus on shooting, goals, and dribbling
+            return base_score + (
+                0.15 * min((row.get("per90_goals", 0) or 0) / 0.8, 1.0)
+                + 0.10 * (row.get("shot_accuracy", 0) or 0) / 100
+                + 0.05 * (row.get("dribble_success", 0) or 0) / 100
+            )
+        else:
+            # Default weighting
+            return base_score + (
+                0.10 * (row.get("pass_accuracy", 0) or 0) / 100
+                + 0.10 * (row.get("duel_win_rate", 0) or 0) / 100
+                + 0.05 * (row.get("def_action_success", 0) or 0) / 100
+                + 0.05 * (row.get("shot_accuracy", 0) or 0) / 100
+            )
 
     # ── Opponent adjustment ────────────────────────────────────────────────────
 

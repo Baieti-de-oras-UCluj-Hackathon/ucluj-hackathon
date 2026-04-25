@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
 
-from core.dependencies import get_xi_service
+from core.dependencies import get_xi_service, get_feature_service
 from services.xi_service import XiService
+from services.feature_service import FeatureService
 
 router = APIRouter()
 
@@ -34,5 +35,22 @@ def list_opponents(
 ):
     try:
         return xi_svc.list_opponents()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/match-preview", response_model=Dict[str, Any])
+def match_preview(
+    opponent_name: str = Query(..., description="Opponent team name as it appears in fixtures"),
+    formation: str = Query("4-3-3"),
+    xi_svc: XiService = Depends(get_xi_service),
+    feature_svc: FeatureService = Depends(get_feature_service),
+):
+    try:
+        return xi_svc.match_preview(
+            opponent_name=opponent_name,
+            formation=formation,
+            main_df=feature_svc._df,
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
