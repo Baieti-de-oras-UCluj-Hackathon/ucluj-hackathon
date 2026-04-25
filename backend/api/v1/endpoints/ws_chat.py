@@ -36,8 +36,14 @@ class ConnectionManager:
 
     async def broadcast_to_channel(self, message: dict, channel_id: str):
         if channel_id in self.active_connections:
-            for connection in self.active_connections[channel_id]:
-                await connection.send_json(message)
+            # Create a list of tasks to run in parallel
+            for connection in list(self.active_connections[channel_id]):
+                try:
+                    await connection.send_json(message)
+                except Exception as e:
+                    print(f"DEBUG: Broadcast error for a client: {e}")
+                    # Optionally remove the dead connection
+                    self.disconnect(connection, channel_id)
 
 manager = ConnectionManager()
 
@@ -68,8 +74,13 @@ async def enforce_message_limit(session: AsyncSession, channel_id: str, limit: i
             await session.delete(msg)
         await session.commit()
 
+@router.websocket("/ws")
+async def websocket_chat_legacy(websocket: WebSocket, token: str = Query(...)):
+    await websocket_chat(websocket, "general", token)
+
 @router.websocket("/ws/{channel_id}")
 async def websocket_chat(websocket: WebSocket, channel_id: str, token: str = Query(...)):
+    print(f"DEBUG: websocket_chat connection attempt for channel={channel_id}")
     # Create an independent session for the WebSocket
     async with session_factory() as session:
         user = await get_current_user_ws(token, session)
@@ -119,36 +130,49 @@ async def websocket_chat(websocket: WebSocket, channel_id: str, token: str = Que
 
     try:
         while True:
-            data = await websocket.receive_json()
-            
-            # Save message to DB and broadcast
-            async with session_factory() as session:
-                new_msg = Message(
-                    team_name=team_name,
-                    channel_id=channel_id,
-                    author_id=user.id,
-                    author_name=(user.full_name.strip() if user.full_name and user.full_name.strip() else None) or user.email.split('@')[0],
-                    content=data.get("content"),
-                    file_url=data.get("file_url"),
-                    file_type=data.get("file_type")
-                )
-                session.add(new_msg)
-                await session.commit()
-                await session.refresh(new_msg)
+            try:
+                data = await websocket.receive_json()
                 
-                await enforce_message_limit(session, channel_id, 50)
+                # Save message to DB and broadcast
+                async with session_factory() as session:
+                    new_msg = Message(
+                        team_name=team_name,
+                        channel_id=channel_id,
+                        author_id=user.id,
+                        author_name=(user.full_name.strip() if user.full_name and user.full_name.strip() else None) or user.email.split('@')[0],
+                        content=data.get("content"),
+                        file_url=data.get("file_url"),
+                        file_type=data.get("file_type")
+                    )
+                    session.add(new_msg)
+                    await session.commit()
+                    await session.refresh(new_msg)
+                    
+                    # Run background cleanup if needed
+                    await enforce_message_limit(session, channel_id, 50)
+                    
+                    msg_payload = {
+                        "id": new_msg.id,
+                        "author_id": new_msg.author_id,
+                        "author_name": new_msg.author_name,
+                        "content": new_msg.content,
+                        "file_url": new_msg.file_url,
+                        "file_type": new_msg.file_type,
+                        "created_at": new_msg.created_at.isoformat() if new_msg.created_at else None
+                    }
                 
-                await manager.broadcast_to_channel({
-                    "id": new_msg.id,
-                    "author_id": new_msg.author_id,
-                    "author_name": new_msg.author_name,
-                    "content": new_msg.content,
-                    "file_url": new_msg.file_url,
-                    "file_type": new_msg.file_type,
-                    "created_at": new_msg.created_at.isoformat() if new_msg.created_at else None
-                }, channel_id)
+                # Broadcast outside the session block
+                await manager.broadcast_to_channel(msg_payload, channel_id)
+            except WebSocketDisconnect:
+                raise
+            except Exception as e:
+                print(f"DEBUG: Error in WebSocket loop: {e}")
+                continue
             
     except WebSocketDisconnect:
+        manager.disconnect(websocket, channel_id)
+    except Exception as e:
+        print(f"DEBUG: Critical WebSocket error: {e}")
         manager.disconnect(websocket, channel_id)
 
 @router.get("/users")
@@ -156,6 +180,7 @@ async def get_team_users(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(_get_db)
 ):
+    print(f"DEBUG: get_team_users for team={current_user.team_name}")
     if not current_user.team_name:
         return []
     

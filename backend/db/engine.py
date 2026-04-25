@@ -24,11 +24,15 @@ async def init_db():
             await conn.execute(text("ALTER TABLE users ADD COLUMN full_name VARCHAR(255)"))
 
         tables = {r[0] for r in (await conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))).fetchall()}
+        print(f"DEBUG: init_db detected tables: {tables}")
         if "messages" in tables:
             msg_cols = {r[1] for r in (await conn.execute(text("PRAGMA table_info(messages)"))).fetchall()}
             if "author_id" not in msg_cols:
                 await conn.execute(text("ALTER TABLE messages ADD COLUMN author_id VARCHAR(36) DEFAULT 'legacy-id'"))
                 await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_messages_author_id ON messages (author_id)"))
+            if "channel_id" not in msg_cols:
+                await conn.execute(text("ALTER TABLE messages ADD COLUMN channel_id VARCHAR(255) DEFAULT 'general'"))
+                await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_messages_channel_id ON messages (channel_id)"))
         if "sr_standings" in tables:
             sr_cols = {r[1] for r in (await conn.execute(text("PRAGMA table_info(sr_standings)"))).fetchall()}
             if "group_name" not in sr_cols:
