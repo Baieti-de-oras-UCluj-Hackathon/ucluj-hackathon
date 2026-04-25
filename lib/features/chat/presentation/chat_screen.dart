@@ -7,15 +7,48 @@ import '../../../core/theme/typography_tokens.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/app_scaffold.dart';
 
+import 'dart:convert';
+import 'package:web_socket_channel/web_socket_channel.dart';
+import '../../../core/config/app_config.dart';
+
 // ─── Model ────────────────────────────────────────────────────────────────────
 
 class _Msg {
-  _Msg({required this.text, required this.sender})
-      : time = _now();
+  _Msg({
+    required this.id,
+    required this.text,
+    required this.sender,
+    required this.time,
+  });
 
+  final String id;
   final String text;
   final String sender;
   final String time;
+
+  factory _Msg.fromJson(Map<String, dynamic> json) {
+    String timeStr = _now();
+    if (json['created_at'] != null) {
+      try {
+        final dt = DateTime.parse(json['created_at']).toLocal();
+        timeStr =
+            '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      } catch (_) {}
+    }
+    return _Msg(
+      id: json['id'] as String? ?? '',
+      text: json['content'] as String? ?? '',
+      sender: _formatSender(json['author_name'] as String? ?? 'Unknown'),
+      time: timeStr,
+    );
+  }
+
+  static String _formatSender(String raw) {
+    if (raw.contains('@')) {
+      return raw.split('@').first.toUpperCase();
+    }
+    return raw.toUpperCase();
+  }
 
   static String _now() {
     final n = DateTime.now();
@@ -46,6 +79,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final _scroll = ScrollController();
   final _msgs = <_Msg>[];
   bool _typing = false;
+  WebSocketChannel? _channel;
 
   String get _senderName {
     final user = widget.authState?.user;
@@ -59,6 +93,53 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _ctrl.addListener(_onTextChange);
+    _connectWebSocket();
+  }
+
+  void _connectWebSocket() {
+    final token = widget.authState?.api.accessToken;
+    if (token == null) return;
+
+    final wsBaseUrl = AppConfig.apiBaseUrl.replaceFirst('http', 'ws');
+    final uri = Uri.parse('$wsBaseUrl/chat/ws?token=$token');
+
+    _channel = WebSocketChannel.connect(uri);
+    _channel!.stream.listen(
+      (message) {
+        if (!mounted) return;
+        try {
+          final data = jsonDecode(message);
+          setState(() {
+            // Check if we already have this message by ID
+            final id = data['id'] as String?;
+            if (id != null && _msgs.any((m) => m.id == id)) return;
+
+            _msgs.add(_Msg.fromJson(data));
+          });
+          _scrollToBottom();
+        } catch (e) {
+          debugPrint('Error parsing message: $e');
+        }
+      },
+      onError: (error) {
+        debugPrint('WebSocket error: $error');
+      },
+      onDone: () {
+        debugPrint('WebSocket disconnected');
+      },
+    );
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scroll.hasClients) {
+        _scroll.animateTo(
+          _scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   void _onTextChange() {
@@ -68,6 +149,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    _channel?.sink.close();
     _ctrl
       ..removeListener(_onTextChange)
       ..dispose();
@@ -78,19 +160,24 @@ class _ChatScreenState extends State<ChatScreen> {
   void _send() {
     final text = _ctrl.text.trim();
     if (text.isEmpty) return;
-    setState(() {
-      _msgs.add(_Msg(text: text, sender: _senderName));
-      _ctrl.clear();
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scroll.hasClients) {
-        _scroll.animateTo(
-          _scroll.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 260),
-          curve: Curves.easeOut,
-        );
-      }
-    });
+
+    if (_channel != null) {
+      _channel!.sink.add(jsonEncode({
+        'content': text,
+      }));
+    } else {
+      // Fallback local append if WS not connected
+      setState(() {
+        _msgs.add(_Msg(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            text: text,
+            sender: _senderName,
+            time: _Msg._now()));
+      });
+      _scrollToBottom();
+    }
+
+    _ctrl.clear();
   }
 
   @override
@@ -133,8 +220,7 @@ class _ChatScreenState extends State<ChatScreen> {
       controller: _scroll,
       padding: const EdgeInsets.symmetric(vertical: SpacingTokens.md),
       itemCount: _msgs.length,
-      separatorBuilder: (_, __) =>
-          const SizedBox(height: SpacingTokens.md),
+      separatorBuilder: (_, __) => const SizedBox(height: SpacingTokens.md),
       itemBuilder: (_, i) => _Bubble(msg: _msgs[i]),
     );
   }
@@ -161,23 +247,22 @@ class _ChatScreenState extends State<ChatScreen> {
     return Container(
       margin: const EdgeInsets.only(top: SpacingTokens.sm),
       decoration: const BoxDecoration(
-        border: Border(
-            top: BorderSide(color: ColorTokens.divider, width: 1)),
+        border: Border(top: BorderSide(color: ColorTokens.divider, width: 1)),
       ),
       child: Row(
         children: [
           Expanded(
             child: TextField(
               controller: _ctrl,
-              style: TypographyTokens.body.copyWith(
-                  color: ColorTokens.textPrimary, fontSize: 14),
+              style: TypographyTokens.body
+                  .copyWith(color: ColorTokens.textPrimary, fontSize: 14),
               maxLines: null,
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _send(),
               decoration: InputDecoration(
                 hintText: 'Write a message...',
-                hintStyle: TypographyTokens.body.copyWith(
-                    color: ColorTokens.textMuted, fontSize: 14),
+                hintStyle: TypographyTokens.body
+                    .copyWith(color: ColorTokens.textMuted, fontSize: 14),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
                     horizontal: SpacingTokens.sm, vertical: 14),
@@ -219,8 +304,8 @@ class _Header extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('TEAM CHAT',
-                      style: TypographyTokens.displayHero
-                          .copyWith(fontSize: 40)),
+                      style:
+                          TypographyTokens.displayHero.copyWith(fontSize: 40)),
                   if (teamName != null && teamName!.isNotEmpty)
                     Text(
                       teamName!.toUpperCase(),
@@ -276,8 +361,8 @@ class _Bubble extends StatelessWidget {
               ),
               child: Text(
                 msg.text,
-                style: TypographyTokens.body.copyWith(
-                    color: ColorTokens.textPrimary, fontSize: 14),
+                style: TypographyTokens.body
+                    .copyWith(color: ColorTokens.textPrimary, fontSize: 14),
               ),
             ),
           ),
