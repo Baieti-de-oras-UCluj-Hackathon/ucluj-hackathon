@@ -39,7 +39,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://hackatonu.web.app",
-        "https://instrumental-airplane-wine-preview.trycloudflare.com",
+        "https://jpeg-inf-statistical-argument.trycloudflare.com",
         "http://localhost:8080",
         "http://127.0.0.1:8080",
     ],
