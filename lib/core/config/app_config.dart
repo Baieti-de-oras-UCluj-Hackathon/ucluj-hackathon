@@ -5,5 +5,8 @@ class AppConfig {
 
   static const bool useFirebaseAuth = bool.fromEnvironment('USE_FIREBASE_AUTH', defaultValue: false);
 
-  static const String apiBaseUrl = 'https://cylinder-noble-foundation-teaches.trycloudflare.com/api/v1';
+  static const String apiBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://127.0.0.1:8000/api/v1',
+  );
 }
