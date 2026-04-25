@@ -64,9 +64,34 @@ class XiService:
 
     def list_opponents(self, min_players: int = 20) -> list[dict]:
         """Return opponent options inferred from loaded XI feature data."""
-        df = self._get_feature_df()
-        if df.empty or "teamId" not in df.columns:
-            return []
+        known_names = {
+            8164: "FCSB",
+            11564: "Dinamo Bucuresti",
+            11565: "FCS Bucuresti",
+            11566: "Rapid Bucuresti",
+            11611: "CFR Cluj",
+            11634: "FC Botosani",
+            11663: "Unirea Slobozia",
+            11943: "Metaloglobus",
+            22731: "Csikszereda Miercurea Ciuc",
+            23334: "FC Arges",
+            26233: "Universitatea Craiova",
+            30817: "UTA Arad",
+            55427: "FC Hermannstadt",
+            60390: "Petrolul 52",
+            61242: "Farul Constanta",
+        }
+
+        try:
+            df = self._get_feature_df()
+        except Exception:
+            df = None
+
+        if df is None or df.empty or "teamId" not in df.columns:
+            return sorted(
+                [{"id": tid, "name": name} for tid, name in known_names.items()],
+                key=lambda item: item["name"],
+            )
 
         my_team_id = 11571
         team_counts = (
@@ -76,19 +101,14 @@ class XiService:
             .value_counts()
         )
 
-        # Keep only teams with enough player records to be meaningful options.
         candidate_ids = [
             int(team_id)
             for team_id, count in team_counts.items()
             if int(team_id) != my_team_id and int(count) >= min_players
         ]
 
-        known_names = {
-            8164: "FCSB",
-            11566: "CFR Cluj",
-            11572: "Rapid Bucuresti",
-            11568: "Dinamo Bucuresti",
-        }
+        if not candidate_ids:
+            candidate_ids = list(known_names.keys())
 
         opponents = [
             {
