@@ -55,10 +55,36 @@ class AuthService {
       'email': email,
       'password': password,
     });
+    _setTokensFromResponse(data);
+  }
+
+  void _setTokensFromResponse(Map<String, dynamic> data) {
     _api.setTokens(
       access: data['access_token'] as String,
       refresh: data['refresh_token'] as String,
     );
+  }
+
+  /// Verifies [idToken] on the backend; returns FastAPI access/refresh tokens.
+  Future<void> exchangeWithFirebaseIdToken(String idToken) async {
+    final data = await _api.post(
+      '/auth/firebase',
+      firebaseIdToken: idToken,
+    );
+    _setTokensFromResponse(data);
+  }
+
+  /// Creates app user and returns JWT; requires a fresh Firebase [idToken].
+  Future<void> registerWithFirebaseIdToken({
+    required String idToken,
+    required String teamName,
+  }) async {
+    final data = await _api.post(
+      '/auth/register_with_firebase',
+      firebaseIdToken: idToken,
+      body: {'team_name': teamName},
+    );
+    _setTokensFromResponse(data);
   }
 
   Future<void> refresh() async {

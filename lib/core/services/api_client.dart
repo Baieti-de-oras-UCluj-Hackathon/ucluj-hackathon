@@ -1,13 +1,14 @@
-import 'dart:convert';
 import 'dart:async';
+import 'dart:convert';
+
 import 'package:http/http.dart' as http;
+import 'package:umbraro/core/config/app_config.dart';
 
 class ApiClient {
-  ApiClient({String? baseUrl})
-      : _baseUrl = baseUrl ?? _defaultBaseUrl;
+  ApiClient({String? baseUrl}) : _baseUrl = baseUrl ?? AppConfig.apiBaseUrl;
 
-  static const String _defaultBaseUrl = 'http://127.0.0.1:8000/api/v1';
   static const Duration _requestTimeout = Duration(seconds: 15);
+
   final String _baseUrl;
   String? _accessToken;
   String? _refreshToken;
@@ -31,6 +32,16 @@ class ApiClient {
         if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
       };
 
+  Map<String, String> _headersFor({String? firebaseIdToken}) {
+    if (firebaseIdToken != null) {
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $firebaseIdToken',
+      };
+    }
+    return _headers;
+  }
+
   Future<Map<String, dynamic>> get(String path) async {
     try {
       final response = await http
@@ -39,10 +50,11 @@ class ApiClient {
             headers: _headers,
           )
           .timeout(_requestTimeout);
-      return _handle(response);
+      return _handleMap(response);
     } on TimeoutException {
       throw ApiException(408, 'Request timed out. Check backend connection.');
     } catch (e) {
+      if (e is ApiException) rethrow;
       throw ApiException(0, 'Network error: $e');
     }
   }
@@ -50,19 +62,21 @@ class ApiClient {
   Future<Map<String, dynamic>> post(
     String path, {
     Map<String, dynamic>? body,
+    String? firebaseIdToken,
   }) async {
     try {
       final response = await http
           .post(
             Uri.parse('$_baseUrl$path'),
-            headers: _headers,
+            headers: _headersFor(firebaseIdToken: firebaseIdToken),
             body: body != null ? jsonEncode(body) : null,
           )
           .timeout(_requestTimeout);
-      return _handle(response);
+      return _handleMap(response);
     } on TimeoutException {
       throw ApiException(408, 'Request timed out. Check backend connection.');
     } catch (e) {
+      if (e is ApiException) rethrow;
       throw ApiException(0, 'Network error: $e');
     }
   }
@@ -78,7 +92,7 @@ class ApiClient {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return jsonDecode(response.body) as List<dynamic>;
       }
-      throw ApiException(response.statusCode, _extractDetail(response.body));
+      _throwError(response);
     } on TimeoutException {
       throw ApiException(408, 'Request timed out. Check backend connection.');
     } catch (e) {
@@ -87,52 +101,48 @@ class ApiClient {
     }
   }
 
-  Future<Map<String, dynamic>> postFile(
-    String path,
-    String filePath,
-    String fileName,
-  ) async {
-    try {
-      final uri = Uri.parse('$_baseUrl$path');
-      final request = http.MultipartRequest('POST', uri);
-      if (_accessToken != null) {
-        request.headers['Authorization'] = 'Bearer $_accessToken';
-      }
-      request.files.add(
-        await http.MultipartFile.fromPath('file', filePath, filename: fileName),
-      );
-      final streamed = await request.send().timeout(_requestTimeout);
-      final response = await http.Response.fromStream(streamed);
-      return _handle(response);
-    } on TimeoutException {
-      throw ApiException(408, 'Request timed out. Check backend connection.');
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException(0, 'Network error: $e');
-    }
-  }
-
-  Map<String, dynamic> _handle(http.Response response) {
-    final decoded = jsonDecode(response.body);
+  Map<String, dynamic> _handleMap(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      return decoded as Map<String, dynamic>;
+      if (response.body.isEmpty) return {};
+      return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    throw ApiException(response.statusCode, _extractDetail(response.body));
+    _throwError(response);
   }
 
-  String _extractDetail(String body) {
+  Never _throwError(http.Response response) {
+    Object? detail;
+    String message = response.body;
     try {
-      final map = jsonDecode(body);
-      if (map is Map && map.containsKey('detail')) return map['detail'].toString();
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map && decoded.containsKey('detail')) {
+        final d = decoded['detail'];
+        detail = d;
+        if (d is String) {
+          message = d;
+        } else if (d is Map) {
+          message = d['message'] as String? ?? d['code'] as String? ?? d.toString();
+        } else {
+          message = d.toString();
+        }
+      }
     } catch (_) {}
-    return body;
+    throw ApiException(response.statusCode, message, detail: detail);
   }
 }
 
 class ApiException implements Exception {
-  ApiException(this.statusCode, this.message);
+  ApiException(this.statusCode, this.message, {this.detail});
+
   final int statusCode;
   final String message;
+  final Object? detail;
+
+  bool get isNeedsRegistration {
+    if (detail is Map) {
+      return (detail as Map)['code'] == 'NEEDS_REGISTRATION';
+    }
+    return message == 'NEEDS_REGISTRATION' || message.contains('NEEDS_REGISTRATION');
+  }
 
   @override
   String toString() => 'ApiException($statusCode): $message';
