@@ -193,27 +193,39 @@ class _StartingXiScreenState extends State<StartingXiScreen> {
           )
         else
           Container(
-            color: ColorTokens.surface,
-            padding: const EdgeInsets.symmetric(horizontal: SpacingTokens.md),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<int>(
-                isExpanded: true,
-                dropdownColor: ColorTokens.surface,
-                value: _selectedOpponentId,
-                style: TypographyTokens.body
-                    .copyWith(color: ColorTokens.textPrimary),
-                onChanged: (v) {
-                  if (v != null) setState(() => _selectedOpponentId = v);
-                },
-                items: _opponents.entries
-                    .map(
-                      (e) => DropdownMenuItem(
-                        value: e.key,
-                        child: Text(e.value),
-                      ),
-                    )
-                    .toList(),
-              ),
+            height: 150,
+            decoration: BoxDecoration(
+              color: ColorTokens.surface,
+              border: Border.all(color: ColorTokens.surfaceLow, width: 1),
+            ),
+            child: ListView.builder(
+              itemCount: _opponents.length,
+              itemBuilder: (context, index) {
+                final entry = _opponents.entries.elementAt(index);
+                final isSelected = _selectedOpponentId == entry.key;
+                return InkWell(
+                  onTap: () => setState(() => _selectedOpponentId = entry.key),
+                  child: Container(
+                    padding: const EdgeInsets.all(SpacingTokens.sm),
+                    color: isSelected ? ColorTokens.accent.withOpacity(0.2) : null,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            entry.value,
+                            style: TypographyTokens.body.copyWith(
+                              color: isSelected ? ColorTokens.accent : ColorTokens.textPrimary,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                        if (isSelected)
+                          const Icon(Icons.check, color: ColorTokens.accent, size: 16),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
           ),
       ],
