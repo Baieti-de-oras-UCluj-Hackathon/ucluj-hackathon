@@ -87,6 +87,31 @@ class ApiClient {
     }
   }
 
+  Future<Map<String, dynamic>> postFile(
+    String path,
+    String filePath,
+    String fileName,
+  ) async {
+    try {
+      final uri = Uri.parse('$_baseUrl$path');
+      final request = http.MultipartRequest('POST', uri);
+      if (_accessToken != null) {
+        request.headers['Authorization'] = 'Bearer $_accessToken';
+      }
+      request.files.add(
+        await http.MultipartFile.fromPath('file', filePath, filename: fileName),
+      );
+      final streamed = await request.send().timeout(_requestTimeout);
+      final response = await http.Response.fromStream(streamed);
+      return _handle(response);
+    } on TimeoutException {
+      throw ApiException(408, 'Request timed out. Check backend connection.');
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(0, 'Network error: $e');
+    }
+  }
+
   Map<String, dynamic> _handle(http.Response response) {
     final decoded = jsonDecode(response.body);
     if (response.statusCode >= 200 && response.statusCode < 300) {
