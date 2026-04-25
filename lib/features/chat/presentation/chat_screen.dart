@@ -443,15 +443,48 @@ class _Bubble extends StatelessWidget {
                     Padding(
                       padding: EdgeInsets.only(
                           bottom: msg.text.isNotEmpty ? SpacingTokens.sm : 0),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: Image.network(
-                          _buildFileUrl(msg.fileUrl!),
-                          width: 200,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Icon(
-                              Icons.broken_image,
-                              color: ColorTokens.textMuted),
+                      child: GestureDetector(
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => Dialog(
+                              backgroundColor: Colors.transparent,
+                              insetPadding: EdgeInsets.zero,
+                              child: Stack(
+                                children: [
+                                  InteractiveViewer(
+                                    child: Center(
+                                      child: Image.network(
+                                        _buildFileUrl(msg.fileUrl!),
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 20,
+                                    right: 20,
+                                    child: IconButton(
+                                      icon: const Icon(Icons.close,
+                                          color: Colors.white, size: 30),
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: Image.network(
+                            _buildFileUrl(msg.fileUrl!),
+                            width: 200,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(
+                                Icons.broken_image,
+                                color: ColorTokens.textMuted),
+                          ),
                         ),
                       ),
                     ),
@@ -459,7 +492,7 @@ class _Bubble extends StatelessWidget {
                     Text(
                       msg.text,
                       style: TypographyTokens.body.copyWith(
-                          color: ColorTokens.textPrimary, fontSize: 14),
+                          color: ColorTokens.textPrimary, fontSize: 16),
                     ),
                 ],
               ),
