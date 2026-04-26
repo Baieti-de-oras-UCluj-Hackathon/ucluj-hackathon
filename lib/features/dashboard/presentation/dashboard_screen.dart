@@ -373,7 +373,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Text(pct,
             style: TypographyTokens.headline.copyWith(
                 color: color, fontSize: 22, letterSpacing: 0)),
-        Text('WIN PROB',
+        Text('ȘANSĂ CÂȘTIG',
             style: TypographyTokens.sectionLabel.copyWith(fontSize: 8)),
       ],
     );

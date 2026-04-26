@@ -387,55 +387,50 @@ class _MatchStatsSheetState extends State<MatchStatsSheet> {
   }
 
   Widget _buildMLBlock(WeekFixture f, double uclProb) {
-    final probPct = '${(uclProb * 100).round()}%';
+    final winPct  = (uclProb * 100).round();
+    final restPct = 100 - winPct;
     final col = uclProb >= 0.55
         ? ColorTokens.positive
         : uclProb >= 0.40
             ? ColorTokens.accent
             : ColorTokens.negative;
-    final label = uclProb >= 0.55
-        ? 'FAVORIT'
-        : uclProb >= 0.40
-            ? 'ECHILIBRAT'
-            : 'DEZAVANTAJ';
 
     return Container(
       color: ColorTokens.surfaceLow,
       padding: const EdgeInsets.all(SpacingTokens.md),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Big prob number
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(_sectionLabelStr('PROBABILITATE VICTORIE U CLUJ'),
-                  style: TypographyTokens.sectionLabel),
-              const SizedBox(height: SpacingTokens.xs),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(probPct,
-                      style: TypographyTokens.displayHero
-                          .copyWith(color: col, fontSize: 44)),
-                  const SizedBox(width: SpacingTokens.xs),
-                  Container(
-                    color: col.withValues(alpha: 0.15),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: SpacingTokens.xs, vertical: 2),
-                    child: Text(label,
-                        style: TypographyTokens.sectionLabel
-                            .copyWith(color: col, fontSize: 8)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: SpacingTokens.xs),
-              Text('Model: CatBoost · Liga 1 2020-2025',
-                  style: TypographyTokens.sectionLabel.copyWith(fontSize: 8)),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('ȘANSĂ DE CÂȘTIG — U CLUJ',
+                    style: TypographyTokens.sectionLabel),
+                const SizedBox(height: SpacingTokens.xs),
+                // Win probability large
+                Text('$winPct%',
+                    style: TypographyTokens.displayHero
+                        .copyWith(color: col, fontSize: 44)),
+                const SizedBox(height: SpacingTokens.xs),
+                // Breakdown row
+                Row(
+                  children: [
+                    _OutcomePill(label: 'CÂȘTIG', pct: winPct, color: col),
+                    const SizedBox(width: SpacingTokens.xs),
+                    _OutcomePill(
+                        label: 'EGAL + ÎNFRÂNGERE',
+                        pct: restPct,
+                        color: ColorTokens.textMuted),
+                  ],
+                ),
+                const SizedBox(height: SpacingTokens.xs),
+                Text('CatBoost · model binar (câștig vs. rest)',
+                    style: TypographyTokens.sectionLabel.copyWith(fontSize: 8)),
+              ],
+            ),
           ),
-          const Spacer(),
-          // Bar
+          const SizedBox(width: SpacingTokens.sm),
           _ProbBar(probability: uclProb, color: col),
         ],
       ),
@@ -533,6 +528,40 @@ class _MatchStatsSheetState extends State<MatchStatsSheet> {
       );
 
   String _sectionLabelStr(String s) => s;
+}
+
+class _OutcomePill extends StatelessWidget {
+  const _OutcomePill({
+    required this.label,
+    required this.pct,
+    required this.color,
+  });
+  final String label;
+  final int pct;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('$pct%',
+              style: TypographyTokens.sectionLabel
+                  .copyWith(color: color, fontSize: 10)),
+          const SizedBox(width: 3),
+          Text(label,
+              style: TypographyTokens.sectionLabel
+                  .copyWith(color: color.withValues(alpha: 0.7), fontSize: 8)),
+        ],
+      ),
+    );
+  }
 }
 
 class _ProbBar extends StatelessWidget {
