@@ -6,7 +6,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 
 from app.config import settings
 from clients.sportradar_client import SportradarClient
@@ -93,16 +93,19 @@ async def week_fixtures(
     request: Request,
     _user=Depends(get_current_user),
     feature_svc: FeatureService = Depends(get_feature_service),
+    week_offset: int = Query(default=0, ge=-52, le=52),
 ):
-    """Return Liga 1 fixtures for the current week with U Cluj-centric ML predictions.
+    """Return Liga 1 fixtures for the requested week with U Cluj-centric ML predictions.
 
+    week_offset=0 → current week, week_offset=1 → next week, etc.
     home_win_probability in each response item is P(U Cluj Win), not P(Home Win).
     key_drivers and top_risks are from U Cluj's perspective regardless of home/away.
     """
     now = datetime.now(timezone.utc)
-    monday = (now - timedelta(days=now.weekday())).replace(
+    this_monday = (now - timedelta(days=now.weekday())).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
+    monday = this_monday + timedelta(weeks=week_offset)
     sunday = monday + timedelta(days=7)
 
     # ── 1. Check local Sportradar cache (instant if fresh) ──────────────────

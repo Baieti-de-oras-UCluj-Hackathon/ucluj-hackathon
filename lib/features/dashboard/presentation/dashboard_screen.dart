@@ -32,6 +32,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _loading = true;
   String? _error;
   List<WeekFixture> _fixtures = [];
+  int _weekOffset = 0;
 
   static const String _myTeam = 'Universitatea Cluj';
 
@@ -45,18 +46,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
     try {
-      final data = await _repo.fetchWeekFixtures();
+      final data = await _repo.fetchWeekFixtures(weekOffset: _weekOffset);
       if (mounted) setState(() { _fixtures = data; _loading = false; });
     } catch (e) {
       if (mounted) {
         if (e is ApiException && e.statusCode == 401) {
-          // Auto logout on 401
           widget.authState.logout();
           return;
         }
         setState(() { _error = e.toString(); _loading = false; });
       }
     }
+  }
+
+  void _changeWeek(int delta) {
+    setState(() => _weekOffset += delta);
+    _load();
   }
 
   void _openStats(WeekFixture f) {
@@ -74,11 +79,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
       currentTab: AppTab.dashboard,
       onTabSelected: widget.onTabSelected,
       onProfileTap: widget.onProfileTap,
-      body: _loading
-          ? const Center(child: CircularProgressIndicator(color: ColorTokens.accent))
-          : _error != null
-              ? _buildError()
-              : _buildContent(),
+      body: GestureDetector(
+        onHorizontalDragEnd: (details) {
+          if (details.primaryVelocity == null) return;
+          if (details.primaryVelocity! < -200) _changeWeek(1);   // swipe left → next week
+          if (details.primaryVelocity! > 200) _changeWeek(-1);  // swipe right → prev week
+        },
+        child: _loading
+            ? const Center(child: CircularProgressIndicator(color: ColorTokens.accent))
+            : _error != null
+                ? _buildError()
+                : _buildContent(),
+      ),
     );
   }
 
@@ -114,7 +126,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
           // U Cluj section
           if (uclFixtures.isNotEmpty) ...[
-            _buildSectionLabel('U CLUJ — ACEASTĂ SĂPTĂMÂNĂ', ColorTokens.accent),
+            _buildSectionLabel(
+              _weekOffset == 0 ? 'U CLUJ — ACEASTĂ SĂPTĂMÂNĂ' : 'U CLUJ — RUNDA VIITOARE',
+              ColorTokens.accent,
+            ),
             const SizedBox(height: SpacingTokens.sm),
             ...uclFixtures.map((f) => _buildMatchCard(f, highlight: true)),
             const SizedBox(height: SpacingTokens.xl),
@@ -145,17 +160,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildWeekHeader() {
     final label = _visibleRangeLabel();
+    final weekLabel = _weekOffset == 0
+        ? 'SĂPTĂMÂNA CURENTĂ'
+        : _weekOffset > 0
+            ? 'SĂPTĂMÂNA +$_weekOffset'
+            : 'SĂPTĂMÂNA $_weekOffset';
 
     return Container(
       color: ColorTokens.surfaceLow,
-      padding: const EdgeInsets.all(SpacingTokens.md),
+      padding: const EdgeInsets.symmetric(
+          horizontal: SpacingTokens.sm, vertical: SpacingTokens.xs),
       child: Row(
         children: [
-          const Icon(Icons.calendar_today, color: ColorTokens.accent, size: 16),
-          const SizedBox(width: SpacingTokens.sm),
-          Text('INTERVAL AFIȘAT', style: TypographyTokens.sectionLabel),
-          const Spacer(),
-          Text(label, style: TypographyTokens.sectionLabel.copyWith(color: ColorTokens.accent)),
+          // Prev week arrow
+          IconButton(
+            icon: const Icon(Icons.chevron_left, color: ColorTokens.accent, size: 20),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            onPressed: () => _changeWeek(-1),
+          ),
+          const Icon(Icons.calendar_today, color: ColorTokens.accent, size: 14),
+          const SizedBox(width: SpacingTokens.xs),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(weekLabel,
+                    style: TypographyTokens.sectionLabel.copyWith(fontSize: 9)),
+                Text(label,
+                    style: TypographyTokens.sectionLabel
+                        .copyWith(color: ColorTokens.accent, fontSize: 10)),
+              ],
+            ),
+          ),
+          // Next week arrow
+          IconButton(
+            icon: const Icon(Icons.chevron_right, color: ColorTokens.accent, size: 20),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            onPressed: () => _changeWeek(1),
+          ),
         ],
       ),
     );

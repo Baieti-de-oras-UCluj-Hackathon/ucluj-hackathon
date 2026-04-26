@@ -7,8 +7,8 @@ class WeekRepository {
 
   final ApiClient _api;
 
-  Future<List<WeekFixture>> fetchWeekFixtures() async {
-    final list = await _api.getList('/week-fixtures');
+  Future<List<WeekFixture>> fetchWeekFixtures({int weekOffset = 0}) async {
+    final list = await _api.getList('/week-fixtures?week_offset=$weekOffset');
     return list
         .cast<Map<String, dynamic>>()
         .map(WeekFixture.fromJson)
