@@ -1,0 +1,121 @@
+class MatchTeamStats {
+  final double? ballPossession;
+  final int? shotsOnTarget;
+  final int? shotsOffTarget;
+  final int? shotsTotal;
+  final int? cornerKicks;
+  final int? yellowCards;
+  final int? redCards;
+  final int? offsides;
+  final int? fouls;
+  final int? goalkeeperSaves;
+
+  MatchTeamStats({
+    this.ballPossession,
+    this.shotsOnTarget,
+    this.shotsOffTarget,
+    this.shotsTotal,
+    this.cornerKicks,
+    this.yellowCards,
+    this.redCards,
+    this.offsides,
+    this.fouls,
+    this.goalkeeperSaves,
+  });
+
+  bool get hasData =>
+      ballPossession != null ||
+      shotsOnTarget != null ||
+      cornerKicks != null;
+
+  int get totalShots => shotsTotal ?? ((shotsOnTarget ?? 0) + (shotsOffTarget ?? 0));
+
+  factory MatchTeamStats.fromJson(Map<String, dynamic> j) => MatchTeamStats(
+        ballPossession: (j['ball_possession'] as num?)?.toDouble(),
+        shotsOnTarget: (j['shots_on_target'] as num?)?.toInt(),
+        shotsOffTarget: (j['shots_off_target'] as num?)?.toInt(),
+        shotsTotal: (j['shots_total'] as num?)?.toInt(),
+        cornerKicks: (j['corner_kicks'] as num?)?.toInt(),
+        yellowCards: (j['yellow_cards'] as num?)?.toInt(),
+        redCards: (j['red_cards'] as num?)?.toInt(),
+        offsides: (j['offsides'] as num?)?.toInt(),
+        fouls: (j['fouls'] as num?)?.toInt(),
+        goalkeeperSaves: (j['goalkeeper_saves'] as num?)?.toInt(),
+      );
+}
+
+class MatchPlayer {
+  final String name;
+  final int? jerseyNumber;
+  final String type; // "starter" | "substitute"
+  final String position; // G, D, M, F
+  final int goalsScored;
+  final int assists;
+  final int yellowCards;
+  final int redCards;
+  final int shotsOnTarget;
+  final int? minutesPlayed;
+
+  MatchPlayer({
+    required this.name,
+    this.jerseyNumber,
+    required this.type,
+    required this.position,
+    required this.goalsScored,
+    required this.assists,
+    required this.yellowCards,
+    required this.redCards,
+    required this.shotsOnTarget,
+    this.minutesPlayed,
+  });
+
+  bool get isStarter => type == 'starter';
+
+  factory MatchPlayer.fromJson(Map<String, dynamic> j) => MatchPlayer(
+        name: j['name'] as String? ?? '',
+        jerseyNumber: (j['jersey_number'] as num?)?.toInt(),
+        type: j['type'] as String? ?? 'starter',
+        position: j['position'] as String? ?? '',
+        goalsScored: (j['goals_scored'] as num?)?.toInt() ?? 0,
+        assists: (j['assists'] as num?)?.toInt() ?? 0,
+        yellowCards: (j['yellow_cards'] as num?)?.toInt() ?? 0,
+        redCards: (j['red_cards'] as num?)?.toInt() ?? 0,
+        shotsOnTarget: (j['shots_on_target'] as num?)?.toInt() ?? 0,
+        minutesPlayed: (j['minutes_played'] as num?)?.toInt(),
+      );
+}
+
+class MatchDetails {
+  final String matchId;
+  final MatchTeamStats homeStats;
+  final MatchTeamStats awayStats;
+  final List<MatchPlayer> homeLineup;
+  final List<MatchPlayer> awayLineup;
+
+  MatchDetails({
+    required this.matchId,
+    required this.homeStats,
+    required this.awayStats,
+    required this.homeLineup,
+    required this.awayLineup,
+  });
+
+  bool get hasStats => homeStats.hasData || awayStats.hasData;
+  bool get hasLineups => homeLineup.isNotEmpty || awayLineup.isNotEmpty;
+
+  factory MatchDetails.fromJson(Map<String, dynamic> j) => MatchDetails(
+        matchId: j['match_id'] as String? ?? '',
+        homeStats: MatchTeamStats.fromJson(
+            (j['home_stats'] as Map<String, dynamic>?) ?? {}),
+        awayStats: MatchTeamStats.fromJson(
+            (j['away_stats'] as Map<String, dynamic>?) ?? {}),
+        homeLineup: (j['home_lineup'] as List<dynamic>?)
+                ?.map((e) => MatchPlayer.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [],
+        awayLineup: (j['away_lineup'] as List<dynamic>?)
+                ?.map((e) => MatchPlayer.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [],
+      );
+}

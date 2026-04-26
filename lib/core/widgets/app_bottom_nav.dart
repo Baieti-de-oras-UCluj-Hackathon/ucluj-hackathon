@@ -31,12 +31,12 @@ class AppBottomNav extends StatelessWidget {
         BottomNavigationBarItem(
           icon: Icon(Icons.dashboard_outlined),
           activeIcon: Icon(Icons.dashboard),
-          label: 'DASHBOARD',
+          label: 'PANOU',
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.leaderboard_outlined),
           activeIcon: Icon(Icons.leaderboard),
-          label: 'STANDINGS',
+          label: 'CLASAMENT',
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.chat_bubble_outline),

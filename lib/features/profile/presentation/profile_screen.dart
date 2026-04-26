@@ -13,7 +13,7 @@ import '../../../core/theme/typography_tokens.dart';
 class _Demo {
   const _Demo._();
   static const String name = 'Mihai Ciorăscu';
-  static const String role = 'TACTICAL ANALYST';
+  static const String role = 'ANALIST TACTIC';
   static const String country = 'Romania';
   static const String memberSince = 'Apr 2026';
   static const String lastActive = 'Today';
@@ -75,7 +75,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   int _tabIndex = 0;
-  static const _tabs = ['OVERVIEW', 'ACTIVITY', 'ACCOUNT'];
+  static const _tabs = ['PREZENTARE', 'ACTIVITATE', 'CONT'];
 
   AuthUser? get _user => widget.authState.user;
   String get _team => _user?.teamName ?? 'No Team';
@@ -134,19 +134,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Platform metrics
-        Text('PLATFORM USAGE  ·  LAST 30 DAYS',
+        Text('UTILIZARE PLATFORMĂ  ·  ULTIMELE 30 ZILE',
             style: TypographyTokens.sectionLabel),
         const SizedBox(height: SpacingTokens.md),
         const Row(children: [
-          Expanded(child: _StatCard(value: _Demo.briefsGenerated, label: 'BRIEFS\nGENERATED')),
+          Expanded(child: _StatCard(value: _Demo.briefsGenerated, label: 'RAPOARTE\nGENERATE')),
           SizedBox(width: SpacingTokens.sm),
-          Expanded(child: _StatCard(value: _Demo.simulationsRun, label: 'SIMULATIONS\nRUN')),
+          Expanded(child: _StatCard(value: _Demo.simulationsRun, label: 'SIMULĂRI\nRULATE')),
         ]),
         const SizedBox(height: SpacingTokens.sm),
         const Row(children: [
-          Expanded(child: _StatCard(value: _Demo.savedBlueprints, label: 'SAVED\nBLUEPRINTS')),
+          Expanded(child: _StatCard(value: _Demo.savedBlueprints, label: 'PLANURI\nSALVATE')),
           SizedBox(width: SpacingTokens.sm),
-          Expanded(child: _StatCard(value: _Demo.reportsExported, label: 'REPORTS\nEXPORTED')),
+          Expanded(child: _StatCard(value: _Demo.reportsExported, label: 'RAPOARTE\nEXPORTATE')),
         ]),
 
         const SizedBox(height: SpacingTokens.xl),
@@ -154,7 +154,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: SpacingTokens.xl),
 
         // Recent activity (top 3 in overview)
-        Text('RECENT ACTIVITY', style: TypographyTokens.sectionLabel),
+        Text('ACTIVITATE RECENTĂ', style: TypographyTokens.sectionLabel),
         const SizedBox(height: SpacingTokens.md),
         for (final a in _Demo.activities.take(3))
           _ActivityItem(action: a.action, detail: a.detail, time: a.time),
@@ -164,15 +164,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: SpacingTokens.xl),
 
         // Workspace / club context
-        Text('WORKSPACE', style: TypographyTokens.sectionLabel),
+        Text('SPAȚIU DE LUCRU', style: TypographyTokens.sectionLabel),
         const SizedBox(height: SpacingTokens.md),
-        _InfoRow(label: 'DEFAULT CLUB', value: _team),
-        _InfoRow(label: 'PREFERRED TEAM', value: _team),
-        const _InfoRow(label: 'LAST ANALYZED', value: _Demo.lastAnalyzed),
-        const _InfoRow(label: 'LEAGUE', value: _Demo.league),
-        const _InfoRow(label: 'SEASON', value: _Demo.season),
-        const _InfoRow(label: 'LANGUAGE', value: _Demo.language),
-        const _InfoRow(label: 'EXPORT FORMAT', value: _Demo.exportFormat),
+        _InfoRow(label: 'CLUB IMPLICIT', value: _team),
+        _InfoRow(label: 'ECHIPĂ PREFERATĂ', value: _team),
+        const _InfoRow(label: 'ULTIMA ANALIZĂ', value: _Demo.lastAnalyzed),
+        const _InfoRow(label: 'LIGĂ', value: _Demo.league),
+        const _InfoRow(label: 'SEZON', value: _Demo.season),
+        const _InfoRow(label: 'LIMBĂ', value: _Demo.language),
+        const _InfoRow(label: 'FORMAT EXPORT', value: _Demo.exportFormat),
       ],
     );
   }
@@ -185,7 +185,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('RECENT ACTIVITY', style: TypographyTokens.sectionLabel),
+        Text('ACTIVITATE RECENTĂ', style: TypographyTokens.sectionLabel),
         const SizedBox(height: SpacingTokens.md),
         for (final a in _Demo.activities)
           _ActivityItem(action: a.action, detail: a.detail, time: a.time),
@@ -194,7 +194,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const Divider(height: 1, color: ColorTokens.divider),
         const SizedBox(height: SpacingTokens.xl),
 
-        Text('SAVED BRIEFS', style: TypographyTokens.sectionLabel),
+        Text('RAPOARTE SALVATE', style: TypographyTokens.sectionLabel),
         const SizedBox(height: SpacingTokens.md),
         for (final s in _Demo.savedBriefs)
           _SavedItem(title: s.title, date: s.date),
@@ -204,14 +204,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: SpacingTokens.xl),
 
         // Saved assets summary
-        Text('SAVED ASSETS', style: TypographyTokens.sectionLabel),
+        Text('RESURSE SALVATE', style: TypographyTokens.sectionLabel),
         const SizedBox(height: SpacingTokens.md),
         const Row(children: [
-          Expanded(child: _StatCard(value: '3', label: 'SAVED\nBRIEFS')),
+          Expanded(child: _StatCard(value: '3', label: 'RAPOARTE\nSALVATE')),
           SizedBox(width: SpacingTokens.sm),
-          Expanded(child: _StatCard(value: _Demo.savedBlueprints, label: 'SAVED\nBLUEPRINTS')),
+          Expanded(child: _StatCard(value: _Demo.savedBlueprints, label: 'PLANURI\nSALVATE')),
           SizedBox(width: SpacingTokens.sm),
-          Expanded(child: _StatCard(value: '2', label: 'WATCHLIST\nTEAMS')),
+          Expanded(child: _StatCard(value: '2', label: 'ECHIPE\nURMĂRITE')),
         ]),
       ],
     );
@@ -225,66 +225,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('PLAN & ACCESS', style: TypographyTokens.sectionLabel),
+        Text('ABONAMENT & ACCES', style: TypographyTokens.sectionLabel),
         const SizedBox(height: SpacingTokens.md),
-        const _InfoRow(label: 'PLAN', value: _Demo.plan),
+        const _InfoRow(label: 'ABONAMENT', value: _Demo.plan),
         _InfoRow(label: 'EMAIL', value: _email),
-        _InfoRow(label: 'ROLE', value: _userRole),
-        const _InfoRow(label: 'SECURITY', value: _Demo.security),
-        const _InfoRow(label: 'NOTIFICATIONS', value: _Demo.notifications),
+        _InfoRow(label: 'ROL', value: _userRole),
+        const _InfoRow(label: 'SECURITATE', value: _Demo.security),
+        const _InfoRow(label: 'NOTIFICĂRI', value: _Demo.notifications),
 
         const SizedBox(height: SpacingTokens.xl),
         const Divider(height: 1, color: ColorTokens.divider),
         const SizedBox(height: SpacingTokens.xl),
 
-        Text('PREFERENCES', style: TypographyTokens.sectionLabel),
+        Text('PREFERINȚE', style: TypographyTokens.sectionLabel),
         const SizedBox(height: SpacingTokens.md),
-        const _InfoRow(label: 'LANGUAGE', value: _Demo.language),
-        const _InfoRow(label: 'EXPORT FORMAT', value: _Demo.exportFormat),
-        const _InfoRow(label: 'DEFAULT VIEW', value: 'Dashboard'),
-        _InfoRow(label: 'DEFAULT CLUB', value: _team),
+        const _InfoRow(label: 'LIMBĂ', value: _Demo.language),
+        const _InfoRow(label: 'FORMAT EXPORT', value: _Demo.exportFormat),
+        const _InfoRow(label: 'VIZUALIZARE IMPLICITĂ', value: 'Dashboard'),
+        _InfoRow(label: 'CLUB IMPLICIT', value: _team),
 
         const SizedBox(height: SpacingTokens.xl),
         const Divider(height: 1, color: ColorTokens.divider),
         const SizedBox(height: SpacingTokens.xl),
 
-        Text('SAVED ASSETS', style: TypographyTokens.sectionLabel),
+        Text('RESURSE SALVATE', style: TypographyTokens.sectionLabel),
         const SizedBox(height: SpacingTokens.md),
         const Row(children: [
-          Expanded(child: _StatCard(value: '3', label: 'SAVED\nBRIEFS')),
+          Expanded(child: _StatCard(value: '3', label: 'RAPOARTE\nSALVATE')),
           SizedBox(width: SpacingTokens.sm),
-          Expanded(child: _StatCard(value: _Demo.savedBlueprints, label: 'SAVED\nBLUEPRINTS')),
+          Expanded(child: _StatCard(value: _Demo.savedBlueprints, label: 'PLANURI\nSALVATE')),
           SizedBox(width: SpacingTokens.sm),
-          Expanded(child: _StatCard(value: '2', label: 'WATCHLIST\nTEAMS')),
+          Expanded(child: _StatCard(value: '2', label: 'ECHIPE\nURMĂRITE')),
         ]),
 
         const SizedBox(height: SpacingTokens.xl),
         const Divider(height: 1, color: ColorTokens.divider),
         const SizedBox(height: SpacingTokens.xl),
 
-        Text('SECURITY', style: TypographyTokens.sectionLabel),
+        Text('SECURITATE', style: TypographyTokens.sectionLabel),
         const SizedBox(height: SpacingTokens.md),
-        const _InfoRow(label: 'PASSWORD', value: '••••••••'),
-        const _InfoRow(label: 'TWO-FACTOR', value: 'Not enabled'),
-        const _InfoRow(label: 'LAST LOGIN', value: 'Today'),
+        const _InfoRow(label: 'PAROLĂ', value: '••••••••'),
+        const _InfoRow(label: 'AUTENTIFICARE DUALĂ', value: 'Neactivat'),
+        const _InfoRow(label: 'ULTIMA AUTENTIFICARE', value: 'Astăzi'),
 
         const SizedBox(height: SpacingTokens.xxl),
 
         // Bottom actions
         _ActionButton(
-          label: 'EDIT PROFILE',
+          label: 'EDITARE PROFIL',
           icon: Icons.edit_outlined,
           onTap: () {},
         ),
         const SizedBox(height: SpacingTokens.sm),
         _ActionButton(
-          label: 'MANAGE PREFERENCES',
+          label: 'GESTIONARE PREFERINȚE',
           icon: Icons.tune_outlined,
           onTap: () {},
         ),
         const SizedBox(height: SpacingTokens.sm),
         _ActionButton(
-          label: 'LOG OUT',
+          label: 'DECONECTARE',
           icon: Icons.logout,
           isDestructive: true,
           onTap: () async {
@@ -298,7 +298,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: SpacingTokens.xl),
         Center(
           child: Text(
-            'UMBRARO v0.1.0  ·  THESIS BUILD',
+            'U CLUJ v0.1.0  ·  THESIS BUILD',
             style: TypographyTokens.sectionLabel.copyWith(
               color: ColorTokens.textMuted.withValues(alpha: 0.4),
               fontSize: 9,
@@ -334,7 +334,7 @@ class _ProfileHeader extends StatelessWidget {
           ),
           const SizedBox(width: SpacingTokens.sm),
           Text(
-            'PROFILE',
+            'PROFIL',
             style: TypographyTokens.sectionLabel.copyWith(
               color: ColorTokens.textPrimary,
               letterSpacing: 2.4,
@@ -424,13 +424,13 @@ class _IdentitySummary extends StatelessWidget {
       child: IntrinsicHeight(
         child: Row(
           children: [
-            _cell('MEMBER SINCE', memberSince),
+            _cell('MEMBRU DIN', memberSince),
             const VerticalDivider(width: 1, color: ColorTokens.divider),
-            _cell('LAST ACTIVE', lastActive),
+            _cell('ULTIMĂ ACTIVITATE', lastActive),
             const VerticalDivider(width: 1, color: ColorTokens.divider),
             _cell('CLUB', club),
             const VerticalDivider(width: 1, color: ColorTokens.divider),
-            _cell('ACCESS', access),
+            _cell('ACCES', access),
           ],
         ),
       ),

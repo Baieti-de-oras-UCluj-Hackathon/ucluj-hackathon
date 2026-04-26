@@ -85,7 +85,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => MatchStatsSheet(fixture: f, myTeam: _myTeam),
+      builder: (_) => MatchStatsSheet(
+        fixture: f,
+        myTeam: _myTeam,
+        apiClient: widget.authState.api,
+      ),
     );
   }
 
@@ -143,7 +147,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // U Cluj section
           if (uclFixtures.isNotEmpty) ...[
             _buildSectionLabel(
-              _weekOffset == 0 ? 'U CLUJ — ACEASTĂ SĂPTĂMÂNĂ' : 'U CLUJ — RUNDA VIITOARE',
+              _weekOffset < 0
+                  ? 'U CLUJ — REZULTATE'
+                  : _weekOffset == 0
+                      ? 'U CLUJ — ACEASTĂ SĂPTĂMÂNĂ'
+                      : 'U CLUJ — RUNDA VIITOARE',
               ColorTokens.accent,
             ),
             const SizedBox(height: SpacingTokens.sm),

@@ -56,15 +56,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final confirm = _confirmCtrl.text;
 
     if (name.isEmpty || email.isEmpty || pass.isEmpty) {
-      setState(() => _localError = 'All fields are required');
+      setState(() => _localError = 'Toate câmpurile sunt obligatorii');
       return;
     }
     if (pass.length < 8) {
-      setState(() => _localError = 'Password must be at least 8 characters');
+      setState(() => _localError = 'Parola trebuie să aibă cel puțin 8 caractere');
       return;
     }
     if (pass != confirm) {
-      setState(() => _localError = 'Passwords do not match');
+      setState(() => _localError = 'Parolele nu coincid');
       return;
     }
 
@@ -129,18 +129,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: SpacingTokens.sm),
                   Text(
-                    'CREATE YOUR ACCOUNT',
+                    'CREEAZĂ CONTUL',
                     textAlign: TextAlign.center,
                     style: TypographyTokens.sectionLabel,
                   ),
                   const SizedBox(height: 48),
-                  _buildField(_nameCtrl, 'FULL NAME', false),
+                  _buildField(_nameCtrl, 'NUME COMPLET', false),
                   const SizedBox(height: SpacingTokens.md),
                   _buildField(_emailCtrl, 'EMAIL', false),
                   const SizedBox(height: SpacingTokens.md),
-                  _buildField(_passCtrl, 'PASSWORD', true),
+                  _buildField(_passCtrl, 'PAROLĂ', true),
                   const SizedBox(height: SpacingTokens.md),
-                  _buildField(_confirmCtrl, 'CONFIRM PASSWORD', true),
+                  _buildField(_confirmCtrl, 'CONFIRMĂ PAROLA', true),
 
                   const SizedBox(height: SpacingTokens.xl),
                   if (displayError != null) ...[
@@ -176,7 +176,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                             )
                           : Text(
-                              'REGISTER',
+                              'ÎNREGISTREAZĂ-TE',
                               style: TypographyTokens.sectionLabel
                                   .copyWith(color: ColorTokens.onAccent),
                             ),
@@ -187,13 +187,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'ALREADY HAVE AN ACCOUNT? ',
+                        'AI DEJA CONT? ',
                         style: TypographyTokens.sectionLabel,
                       ),
                       GestureDetector(
                         onTap: widget.onLoginTap,
                         child: Text(
-                          'SIGN IN',
+                          'AUTENTIFICĂ-TE',
                           style: TypographyTokens.sectionLabel.copyWith(
                             color: ColorTokens.accent,
                           ),

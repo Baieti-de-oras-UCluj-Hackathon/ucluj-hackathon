@@ -133,57 +133,59 @@ async def week_fixtures(
         fix_svc = _fixture_service(request)
         fixtures = _csv_week_fixtures(fix_svc, monday, sunday)
 
-    # ── 4. ML predictions ───────────────────────────────────────────────────
+    # ── 4. ML predictions (offloaded to thread pool — CPU-bound) ────────────
     model_svc = ModelService(getattr(request.app.state, "bundle", None))
     expl_svc = ExplanationService(model_svc)
     presc_svc = PrescriptionService(model_svc)
 
-    result = []
-    for f in fixtures:
-        item = dict(f)
-        try:
-            if model_svc.is_ready:
-                feat = feature_svc.build_feature_vector(
-                    f["home_team"], f["away_team"], model_svc.feature_cols
-                )
-                raw_home_prob = float(model_svc.predict_proba(feat))
-                ucl_prob = _to_ucluj_win_prob(raw_home_prob, f["home_team"], f["away_team"])
-                ui_prob = _dampen_probability(ucl_prob)
-                ucl_is_home = _ucluj_is_home(f["home_team"], f["away_team"])
+    def _compute_predictions(fixtures_list: list[dict]) -> list[dict]:
+        result = []
+        for f in fixtures_list:
+            item = dict(f)
+            try:
+                if model_svc.is_ready:
+                    feat = feature_svc.build_feature_vector(
+                        f["home_team"], f["away_team"], model_svc.feature_cols
+                    )
+                    raw_home_prob = float(model_svc.predict_proba(feat))
+                    ucl_prob = _to_ucluj_win_prob(raw_home_prob, f["home_team"], f["away_team"])
+                    ui_prob = _dampen_probability(ucl_prob)
+                    ucl_is_home = _ucluj_is_home(f["home_team"], f["away_team"])
 
-                expl = expl_svc.explain(feat, ui_prob, ucl_is_home=ucl_is_home)
+                    expl = expl_svc.explain(feat, ui_prob, ucl_is_home=ucl_is_home)
 
-                is_completed = f.get("home_score") is not None and f.get("away_score") is not None
-                if not is_completed:
-                    presc = presc_svc.prescribe(feat, ucl_is_home=ucl_is_home)
-                    narrative = presc["text"] if presc["text"] else expl["narrative"]
-                    prescription = presc.get("structured")
+                    is_completed = f.get("home_score") is not None and f.get("away_score") is not None
+                    if not is_completed:
+                        presc = presc_svc.prescribe(feat, ucl_is_home=ucl_is_home)
+                        narrative = presc["text"] if presc["text"] else expl["narrative"]
+                        prescription = presc.get("structured")
+                    else:
+                        narrative = ""
+                        prescription = None
+
+                    item["home_win_probability"] = round(ui_prob, 4)
+                    item["key_drivers"] = expl["top_drivers"][:3]
+                    item["top_risks"] = expl["top_risks"][:2]
+                    item["narrative"] = narrative
+                    item["prescription"] = prescription
                 else:
-                    narrative = ""
-                    prescription = None
-
-                item["home_win_probability"] = round(ui_prob, 4)
-                item["key_drivers"] = expl["top_drivers"][:3]
-                item["top_risks"] = expl["top_risks"][:2]
-                item["narrative"] = narrative
-                item["prescription"] = prescription
-            else:
+                    item["home_win_probability"] = None
+                    item["key_drivers"] = []
+                    item["top_risks"] = []
+                    item["narrative"] = (
+                        "Modelul predictiv este temporar indisponibil."
+                    )
+                    item["prescription"] = None
+            except Exception:
                 item["home_win_probability"] = None
                 item["key_drivers"] = []
                 item["top_risks"] = []
-                item["narrative"] = (
-                    "Predictive model is temporarily unavailable. "
-                    "XI recommendation and tactical form metrics remain active."
-                )
+                item["narrative"] = ""
                 item["prescription"] = None
-        except Exception:
-            item["home_win_probability"] = None
-            item["key_drivers"] = []
-            item["top_risks"] = []
-            item["narrative"] = ""
-            item["prescription"] = None
-        result.append(item)
+            result.append(item)
+        return result
 
+    result = await asyncio.to_thread(_compute_predictions, fixtures)
     return result
 
 
@@ -200,6 +202,7 @@ async def _fetch_all_sr_fixtures() -> list[dict]:
     client = SportradarClient()
     data = await client.competitor_schedules(TRACKED_TEAM_ID)
     fixtures: list[dict] = []
+    now = datetime.now(timezone.utc)
 
     for raw_evt in (data or {}).get("schedules", []):
         se = raw_evt.get("sport_event", {})
@@ -219,14 +222,23 @@ async def _fetch_all_sr_fixtures() -> list[dict]:
         if not home or not away:
             continue
 
+        kickoff = _event_kickoff(se)
+        home_score = status.get("home_score")
+        away_score = status.get("away_score")
+
+        # Skip past matches with no score — they were postponed/cancelled
+        match_dt = _parse_dt(kickoff)
+        if match_dt < now and home_score is None:
+            continue
+
         fixtures.append({
             "match_id": se.get("id", ""),
             "season": (ctx.get("season", {}) or {}).get("id", ""),
-            "match_date": _event_kickoff(se),
+            "match_date": kickoff,
             "home_team": home.get("name", ""),
             "away_team": away.get("name", ""),
-            "home_score": status.get("home_score"),
-            "away_score": status.get("away_score"),
+            "home_score": home_score,
+            "away_score": away_score,
             "venue": (se.get("venue", {}) or {}).get("name", ""),
         })
 

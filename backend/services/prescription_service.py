@@ -95,9 +95,10 @@ class PrescriptionService:
             return {"text": "", "improvement": 0.0}
 
         rng = np.random.default_rng(random_state)
-        # When home: maximize P(home win); when away: minimize P(home win) = maximize P(U Cluj win)
-        best_raw = raw_baseline
-        best_tactic: dict | None = None
+
+        # Build all valid simulation vectors first, then batch-predict once.
+        sim_vecs: list[np.ndarray] = []
+        sim_tactics: list[dict] = []
 
         for _ in range(num_simulations):
             poss  = rng.uniform(poss_lo, poss_hi)
@@ -133,19 +134,28 @@ class PrescriptionService:
             vec[feat_idx[target_stats[3]]] = corners
             vec[feat_idx[target_stats[4]]] = goals
             vec[feat_idx[target_stats[5]]] = conceded
+            sim_vecs.append(vec)
+            sim_tactics.append({
+                target_stats[0]: round(float(poss), 1),
+                target_stats[1]: round(float(shots), 1),
+                target_stats[2]: round(float(sot), 1),
+                target_stats[3]: round(float(corners), 1),
+                target_stats[4]: round(float(goals), 1),
+                target_stats[5]: round(float(conceded), 1),
+            })
 
-            p = _predict(vec)
-            improved = (p > best_raw) if ucl_is_home else (p < best_raw)
+        # Single batch prediction for all simulations — far faster than 800 serial calls.
+        best_tactic: dict | None = None
+        best_raw = raw_baseline
+        if sim_vecs:
+            batch = pd.DataFrame(sim_vecs, columns=feature_cols)
+            probs = self._model._model.predict_proba(batch)[:, 1]
+            best_idx = int(np.argmax(probs) if ucl_is_home else np.argmin(probs))
+            candidate_raw = float(probs[best_idx])
+            improved = (candidate_raw > best_raw) if ucl_is_home else (candidate_raw < best_raw)
             if improved:
-                best_raw = p
-                best_tactic = {
-                    target_stats[0]: round(float(poss), 1),
-                    target_stats[1]: round(float(shots), 1),
-                    target_stats[2]: round(float(sot), 1),
-                    target_stats[3]: round(float(corners), 1),
-                    target_stats[4]: round(float(goals), 1),
-                    target_stats[5]: round(float(conceded), 1),
-                }
+                best_raw = candidate_raw
+                best_tactic = sim_tactics[best_idx]
 
         best_prob = best_raw if ucl_is_home else 1.0 - best_raw
         improvement = best_prob - baseline_prob

@@ -79,16 +79,16 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: SpacingTokens.sm),
                   Text(
-                    'TACTICAL INTELLIGENCE PLATFORM',
+                    'PLATFORMĂ DE INTELLIGENCE TACTICĂ',
                     textAlign: TextAlign.center,
                     style: TypographyTokens.sectionLabel,
                   ),
                   const SizedBox(height: 48),
-                  Text('SIGN IN', style: TypographyTokens.sectionLabel),
+                  Text('AUTENTIFICARE', style: TypographyTokens.sectionLabel),
                   const SizedBox(height: SpacingTokens.md),
                   _buildField(_emailCtrl, 'EMAIL', false),
                   const SizedBox(height: SpacingTokens.md),
-                  _buildField(_passCtrl, 'PASSWORD', true),
+                  _buildField(_passCtrl, 'PAROLĂ', true),
                   const SizedBox(height: SpacingTokens.xl),
                   if (widget.authState.error != null) ...[
                     Container(
@@ -123,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             )
                           : Text(
-                              'LOGIN',
+                              'INTRĂ',
                               style: TypographyTokens.sectionLabel
                                   .copyWith(color: ColorTokens.onAccent),
                             ),
@@ -134,13 +134,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'NO ACCOUNT? ',
+                        'NU AI CONT? ',
                         style: TypographyTokens.sectionLabel,
                       ),
                       GestureDetector(
                         onTap: widget.onRegisterTap,
                         child: Text(
-                          'REGISTER',
+                          'ÎNREGISTREAZĂ-TE',
                           style: TypographyTokens.sectionLabel.copyWith(
                             color: ColorTokens.accent,
                           ),

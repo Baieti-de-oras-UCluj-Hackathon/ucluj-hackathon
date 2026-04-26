@@ -5,8 +5,11 @@ import '../../../core/theme/color_tokens.dart';
 import '../../../core/theme/spacing_tokens.dart';
 import '../../../core/theme/typography_tokens.dart';
 import '../../../data/models/week_fixture.dart';
+import '../../../data/models/match_details.dart';
 import '../../../data/models/match_preview.dart' show MatchPreviewResponse;
 import '../../../data/repositories/xi_repository.dart';
+import '../../../data/repositories/match_details_repository.dart';
+import '../../../core/services/api_client.dart';
 import '../../team/presentation/recommended_xi_fifa_panel.dart';
 
 // ── Prescription blueprint widget ──────────────────────────────────────────
@@ -158,33 +161,64 @@ class _PrescriptionBlueprint extends StatelessWidget {
   }
 }
 
+// ── Main sheet ──────────────────────────────────────────────────────────────
+
 class MatchStatsSheet extends StatefulWidget {
   const MatchStatsSheet({
     required this.fixture,
     required this.myTeam,
+    this.apiClient,
     super.key,
   });
 
   final WeekFixture fixture;
   final String myTeam;
+  final ApiClient? apiClient;
 
   @override
   State<MatchStatsSheet> createState() => _MatchStatsSheetState();
 }
 
 class _MatchStatsSheetState extends State<MatchStatsSheet> {
+  // XI (upcoming matches)
   final _xiRepo = XiRepository();
   bool _loadingXi = false;
   MatchPreviewResponse? _preview;
   String? _xiError;
   String _formation = '4-3-3';
 
+  // Lineup team selector (completed matches): 0=home, 1=away
+  int _lineupTeamIndex = 0;
+
+  // Match details (completed matches)
+  MatchDetailsRepository? _detailsRepo;
+  bool _loadingDetails = false;
+  MatchDetails? _matchDetails;
+
   static const _formations = kSupportedFormations;
 
   @override
   void initState() {
     super.initState();
-    _loadXi();
+    final f = widget.fixture;
+    if (f.isCompleted && f.matchId.isNotEmpty) {
+      _loadMatchDetails();
+    } else if (f.involvesUCluj) {
+      _loadXi();
+    }
+  }
+
+  Future<void> _loadMatchDetails() async {
+    setState(() => _loadingDetails = true);
+    try {
+      _detailsRepo ??= MatchDetailsRepository(
+        apiClient: widget.apiClient ?? ApiClient(),
+      );
+      final details = await _detailsRepo!.fetchMatchDetails(widget.fixture.matchId);
+      if (mounted) setState(() { _matchDetails = details; _loadingDetails = false; });
+    } catch (e) {
+      if (mounted) setState(() => _loadingDetails = false);
+    }
   }
 
   Future<void> _loadXi() async {
@@ -206,7 +240,6 @@ class _MatchStatsSheetState extends State<MatchStatsSheet> {
   Widget build(BuildContext context) {
     final f = widget.fixture;
     final screenH = MediaQuery.of(context).size.height;
-    // Backend now returns U Cluj-centric win probability for this card.
     final uclProb = f.homeWinProbability;
 
     return Container(
@@ -217,7 +250,6 @@ class _MatchStatsSheetState extends State<MatchStatsSheet> {
       ),
       child: Column(
         children: [
-          // Handle
           Center(
             child: Container(
               margin: const EdgeInsets.only(top: SpacingTokens.sm),
@@ -226,62 +258,79 @@ class _MatchStatsSheetState extends State<MatchStatsSheet> {
               color: ColorTokens.divider,
             ),
           ),
-          // Header
-          _buildHeader(f, uclProb),
+          _buildHeader(f),
           const Divider(height: 1, color: ColorTokens.divider),
-          // Scrollable body
           Expanded(
             child: ListView(
               padding: const EdgeInsets.all(SpacingTokens.md),
               children: [
-                // Score or "upcoming" badge
                 _buildMatchStatus(f),
                 const SizedBox(height: SpacingTokens.xl),
 
-                // ML prediction block — only for upcoming matches
-                if (!f.isCompleted && uclProb != null) ...[
-                  _buildMLBlock(f, uclProb),
-                  const SizedBox(height: SpacingTokens.xl),
-                ],
+                if (f.isCompleted) ...[
+                  // Official stats from Sportradar
+                  if (_loadingDetails)
+                    const Padding(
+                      padding: EdgeInsets.all(SpacingTokens.xl),
+                      child: Center(
+                        child: CircularProgressIndicator(color: ColorTokens.accent),
+                      ),
+                    )
+                  else if (_matchDetails != null) ...[
+                    if (_matchDetails!.hasStats) ...[
+                      _sectionLabel('STATISTICI OFICIALE'),
+                      const SizedBox(height: SpacingTokens.sm),
+                      _buildTeamStats(f, _matchDetails!),
+                      const SizedBox(height: SpacingTokens.xl),
+                    ],
+                    if (_matchDetails!.hasLineups) ...[
+                      _sectionLabel('ECHIPE DE START'),
+                      const SizedBox(height: SpacingTokens.sm),
+                      _buildLineupPitchSection(f, _matchDetails!),
+                      const SizedBox(height: SpacingTokens.xl),
+                    ],
+                  ],
+                ] else ...[
+                  // ML prediction — only for upcoming
+                  if (uclProb != null) ...[
+                    _buildMLBlock(f, uclProb),
+                    const SizedBox(height: SpacingTokens.xl),
+                  ],
 
-                // Key drivers — only for upcoming matches
-                if (!f.isCompleted && f.keyDrivers.isNotEmpty) ...[
-                  _sectionLabel('FACTORI CHEIE AI'),
-                  const SizedBox(height: SpacingTokens.sm),
-                  ...f.keyDrivers.map(_buildDriverRow),
-                  const SizedBox(height: SpacingTokens.md),
-                ],
+                  if (f.keyDrivers.isNotEmpty) ...[
+                    _sectionLabel('FACTORI CHEIE AI'),
+                    const SizedBox(height: SpacingTokens.sm),
+                    ...f.keyDrivers.map(_buildDriverRow),
+                    const SizedBox(height: SpacingTokens.md),
+                  ],
 
-                // Risks — only for upcoming matches
-                if (!f.isCompleted && f.topRisks.isNotEmpty) ...[
-                  _sectionLabel('RISCURI'),
-                  const SizedBox(height: SpacingTokens.sm),
-                  ...f.topRisks.map((r) => _buildDriverRow(r, isRisk: true)),
-                  const SizedBox(height: SpacingTokens.md),
-                ],
+                  if (f.topRisks.isNotEmpty) ...[
+                    _sectionLabel('RISCURI'),
+                    const SizedBox(height: SpacingTokens.sm),
+                    ...f.topRisks.map((r) => _buildDriverRow(r, isRisk: true)),
+                    const SizedBox(height: SpacingTokens.md),
+                  ],
 
-                // Prescription blueprint — only for upcoming matches
-                if (!f.isCompleted && f.prescription != null) ...[
-                  _sectionLabel('DIAGNOSTIC — PLAN TACTIC'),
-                  const SizedBox(height: SpacingTokens.sm),
-                  _PrescriptionBlueprint(prescription: f.prescription!),
-                  const SizedBox(height: SpacingTokens.xl),
-                ] else if (!f.isCompleted && f.narrative.isNotEmpty) ...[
-                  _sectionLabel('DIAGNOSTIC'),
-                  const SizedBox(height: SpacingTokens.sm),
-                  Container(
-                    color: ColorTokens.surfaceLow,
-                    padding: const EdgeInsets.all(SpacingTokens.md),
-                    child: Text(f.narrative,
-                        style: TypographyTokens.body
-                            .copyWith(color: ColorTokens.textMuted, fontSize: 13)),
-                  ),
-                  const SizedBox(height: SpacingTokens.xl),
-                ],
+                  if (f.prescription != null) ...[
+                    _sectionLabel('DIAGNOSTIC — PLAN TACTIC'),
+                    const SizedBox(height: SpacingTokens.sm),
+                    _PrescriptionBlueprint(prescription: f.prescription!),
+                    const SizedBox(height: SpacingTokens.xl),
+                  ] else if (f.narrative.isNotEmpty) ...[
+                    _sectionLabel('DIAGNOSTIC'),
+                    const SizedBox(height: SpacingTokens.sm),
+                    Container(
+                      color: ColorTokens.surfaceLow,
+                      padding: const EdgeInsets.all(SpacingTokens.md),
+                      child: Text(f.narrative,
+                          style: TypographyTokens.body
+                              .copyWith(color: ColorTokens.textMuted, fontSize: 13)),
+                    ),
+                    const SizedBox(height: SpacingTokens.xl),
+                  ],
 
-                // XI section — only for U Cluj matches
-                if (f.involvesUCluj) ...[
-                  _buildXiSection(),
+                  // XI only for upcoming U Cluj matches
+                  if (f.involvesUCluj) _buildXiSection(),
                 ],
 
                 const SizedBox(height: SpacingTokens.xxl),
@@ -293,7 +342,7 @@ class _MatchStatsSheetState extends State<MatchStatsSheet> {
     );
   }
 
-  Widget _buildHeader(WeekFixture f, double? uclProb) {
+  Widget _buildHeader(WeekFixture f) {
     final homeDisplay = f.homeTeam.replaceAll('Universitatea Cluj', 'U CLUJ').toUpperCase();
     final awayDisplay = f.awayTeam.replaceAll('Universitatea Cluj', 'U CLUJ').toUpperCase();
 
@@ -367,7 +416,6 @@ class _MatchStatsSheetState extends State<MatchStatsSheet> {
       );
     }
 
-    // Upcoming
     return Container(
       color: ColorTokens.surfaceLow,
       padding: const EdgeInsets.all(SpacingTokens.md),
@@ -385,6 +433,423 @@ class _MatchStatsSheetState extends State<MatchStatsSheet> {
       ),
     );
   }
+
+  // ── Team stats comparison ────────────────────────────────────────────────
+
+  Widget _buildTeamStats(WeekFixture f, MatchDetails d) {
+    final h = d.homeStats;
+    final a = d.awayStats;
+
+    return Container(
+      color: ColorTokens.surfaceLow,
+      padding: const EdgeInsets.all(SpacingTokens.md),
+      child: Column(
+        children: [
+          // Header row
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  f.homeTeam.replaceAll('Universitatea Cluj', 'U CLUJ').toUpperCase(),
+                  style: TypographyTokens.sectionLabel.copyWith(
+                    color: f.isUCLujHome ? ColorTokens.accent : ColorTokens.textMuted,
+                    fontSize: 9,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  '',
+                  textAlign: TextAlign.center,
+                  style: TypographyTokens.sectionLabel.copyWith(fontSize: 9),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  f.awayTeam.replaceAll('Universitatea Cluj', 'U CLUJ').toUpperCase(),
+                  style: TypographyTokens.sectionLabel.copyWith(
+                    color: !f.isUCLujHome ? ColorTokens.accent : ColorTokens.textMuted,
+                    fontSize: 9,
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: SpacingTokens.sm),
+          const Divider(height: 1, color: ColorTokens.divider),
+          const SizedBox(height: SpacingTokens.sm),
+
+          if (h.ballPossession != null || a.ballPossession != null)
+            _buildStatRow(
+              'POSESIE',
+              '${h.ballPossession?.toStringAsFixed(0) ?? '—'}%',
+              '${a.ballPossession?.toStringAsFixed(0) ?? '—'}%',
+              homeVal: h.ballPossession ?? 50,
+              awayVal: a.ballPossession ?? 50,
+              higherIsBetter: true,
+              isUCLujHome: f.isUCLujHome,
+            ),
+          _buildStatRowRaw('ȘUTURI PE POARTĂ',
+              '${h.shotsOnTarget ?? '—'}', '${a.shotsOnTarget ?? '—'}',
+              homeVal: (h.shotsOnTarget ?? 0).toDouble(),
+              awayVal: (a.shotsOnTarget ?? 0).toDouble(),
+              higherIsBetter: true, isUCLujHome: f.isUCLujHome),
+          _buildStatRowRaw('ȘUTURI TOTALE',
+              '${h.totalShots}', '${a.totalShots}',
+              homeVal: h.totalShots.toDouble(),
+              awayVal: a.totalShots.toDouble(),
+              higherIsBetter: true, isUCLujHome: f.isUCLujHome),
+          _buildStatRowRaw('CORNERE',
+              '${h.cornerKicks ?? '—'}', '${a.cornerKicks ?? '—'}',
+              homeVal: (h.cornerKicks ?? 0).toDouble(),
+              awayVal: (a.cornerKicks ?? 0).toDouble(),
+              higherIsBetter: true, isUCLujHome: f.isUCLujHome),
+          _buildStatRowRaw('OFSAIDURI',
+              '${h.offsides ?? '—'}', '${a.offsides ?? '—'}',
+              homeVal: (h.offsides ?? 0).toDouble(),
+              awayVal: (a.offsides ?? 0).toDouble(),
+              higherIsBetter: false, isUCLujHome: f.isUCLujHome),
+          _buildStatRowRaw('FAULTURI',
+              '${h.fouls ?? '—'}', '${a.fouls ?? '—'}',
+              homeVal: (h.fouls ?? 0).toDouble(),
+              awayVal: (a.fouls ?? 0).toDouble(),
+              higherIsBetter: false, isUCLujHome: f.isUCLujHome),
+          if (h.yellowCards != null || a.yellowCards != null)
+            _buildStatRowRaw('CARTONAȘE GALBENE',
+                '${h.yellowCards ?? '—'}', '${a.yellowCards ?? '—'}',
+                homeVal: (h.yellowCards ?? 0).toDouble(),
+                awayVal: (a.yellowCards ?? 0).toDouble(),
+                higherIsBetter: false, isUCLujHome: f.isUCLujHome),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatRow(
+    String label,
+    String homeStr,
+    String awayStr, {
+    required double homeVal,
+    required double awayVal,
+    required bool higherIsBetter,
+    required bool isUCLujHome,
+  }) {
+    final total = homeVal + awayVal;
+    final homeRatio = total > 0 ? homeVal / total : 0.5;
+
+    final uclVal = isUCLujHome ? homeVal : awayVal;
+    final oppVal = isUCLujHome ? awayVal : homeVal;
+    final uclColor = higherIsBetter
+        ? (uclVal >= oppVal ? ColorTokens.positive : ColorTokens.negative)
+        : (uclVal <= oppVal ? ColorTokens.positive : ColorTokens.negative);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                width: 48,
+                child: Text(homeStr,
+                    style: TypographyTokens.body.copyWith(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: isUCLujHome ? uclColor : ColorTokens.textPrimary,
+                    )),
+              ),
+              Expanded(
+                child: Center(
+                  child: Text(label,
+                      style: TypographyTokens.sectionLabel
+                          .copyWith(fontSize: 8, color: ColorTokens.textMuted)),
+                ),
+              ),
+              SizedBox(
+                width: 48,
+                child: Text(awayStr,
+                    style: TypographyTokens.body.copyWith(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: !isUCLujHome ? uclColor : ColorTokens.textPrimary,
+                    ),
+                    textAlign: TextAlign.right),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          ClipRRect(
+            child: Row(
+              children: [
+                Expanded(
+                  flex: (homeRatio * 100).round(),
+                  child: Container(
+                    height: 4,
+                    color: isUCLujHome
+                        ? uclColor
+                        : ColorTokens.textMuted.withValues(alpha: 0.5),
+                  ),
+                ),
+                Expanded(
+                  flex: ((1 - homeRatio) * 100).round(),
+                  child: Container(
+                    height: 4,
+                    color: !isUCLujHome
+                        ? uclColor
+                        : ColorTokens.textMuted.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatRowRaw(
+    String label,
+    String homeStr,
+    String awayStr, {
+    required double homeVal,
+    required double awayVal,
+    required bool higherIsBetter,
+    required bool isUCLujHome,
+  }) =>
+      _buildStatRow(label, homeStr, awayStr,
+          homeVal: homeVal,
+          awayVal: awayVal,
+          higherIsBetter: higherIsBetter,
+          isUCLujHome: isUCLujHome);
+
+  // ── Lineup pitch section (completed matches) ─────────────────────────────
+
+  Widget _buildLineupPitchSection(WeekFixture f, MatchDetails d) {
+    final homeDisplay = f.homeTeam.replaceAll('Universitatea Cluj', 'U CLUJ').toUpperCase();
+    final awayDisplay = f.awayTeam.replaceAll('Universitatea Cluj', 'U CLUJ').toUpperCase();
+
+    final isShowingHome = _lineupTeamIndex == 0;
+    final players = isShowingHome ? d.homeLineup : d.awayLineup;
+    final isUCluj = isShowingHome ? f.isUCLujHome : !f.isUCLujHome;
+
+    final starters = players.where((p) => p.isStarter).toList();
+    final subs = players.where((p) => !p.isStarter).toList();
+    final formation = _inferFormation(starters);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ── Team selector tabs ───────────────────────────────────────────
+        Row(
+          children: [
+            _teamTab(homeDisplay, f.isUCLujHome, _lineupTeamIndex == 0,
+                () => setState(() => _lineupTeamIndex = 0)),
+            Container(width: 1, color: ColorTokens.divider),
+            _teamTab(awayDisplay, !f.isUCLujHome, _lineupTeamIndex == 1,
+                () => setState(() => _lineupTeamIndex = 1)),
+          ],
+        ),
+
+        // ── Formation label ──────────────────────────────────────────────
+        if (formation.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+                SpacingTokens.md, SpacingTokens.xs, SpacingTokens.md, 0),
+            child: Text(
+              formation,
+              style: TypographyTokens.sectionLabel.copyWith(
+                color: isUCluj ? ColorTokens.accent : ColorTokens.textMuted,
+                fontSize: 10,
+              ),
+            ),
+          ),
+
+        // ── Pitch (swipeable) ────────────────────────────────────────────
+        GestureDetector(
+          onHorizontalDragEnd: (d) {
+            if ((d.primaryVelocity ?? 0) < -200 && _lineupTeamIndex == 0) {
+              setState(() => _lineupTeamIndex = 1);
+            } else if ((d.primaryVelocity ?? 0) > 200 && _lineupTeamIndex == 1) {
+              setState(() => _lineupTeamIndex = 0);
+            }
+          },
+          child: starters.isNotEmpty
+              ? _ActualLineupPitchPanel(starters: starters)
+              : const SizedBox.shrink(),
+        ),
+
+        // ── Substitutes ──────────────────────────────────────────────────
+        if (subs.isNotEmpty) ...[
+          const SizedBox(height: SpacingTokens.xs),
+          Container(
+            color: ColorTokens.surfaceLow,
+            padding: const EdgeInsets.symmetric(
+                horizontal: SpacingTokens.md, vertical: 4),
+            child: Text('REZERVE',
+                style: TypographyTokens.sectionLabel
+                    .copyWith(fontSize: 8, color: ColorTokens.textMuted)),
+          ),
+          ...subs.map((p) => _buildPlayerRow(p, isUCluj: isUCluj, isSub: true)),
+        ],
+      ],
+    );
+  }
+
+  Widget _teamTab(
+      String name, bool isUCluj, bool selected, VoidCallback onTap) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+              vertical: SpacingTokens.sm, horizontal: SpacingTokens.xs),
+          color: selected ? ColorTokens.surfaceLow : ColorTokens.surfaceHigh,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isUCluj) ...[
+                const Icon(Icons.shield, color: ColorTokens.accent, size: 10),
+                const SizedBox(width: 4),
+              ],
+              Flexible(
+                child: Text(
+                  name,
+                  style: TypographyTokens.sectionLabel.copyWith(
+                    fontSize: 9,
+                    color: selected
+                        ? (isUCluj ? ColorTokens.accent : ColorTokens.textPrimary)
+                        : ColorTokens.textMuted,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _inferFormation(List<MatchPlayer> starters) {
+    final d = starters.where((p) => p.position == 'D').length;
+    final m = starters.where((p) => p.position == 'M').length;
+    final fw = starters.where((p) => p.position == 'F').length;
+    if (d + m + fw == 0) return '';
+    return '$d-$m-$fw';
+  }
+
+  Widget _buildPlayerRow(MatchPlayer p, {required bool isUCluj, bool isSub = false}) {
+    final posColor = _positionColor(p.position);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 1),
+      color: isSub
+          ? ColorTokens.surface
+          : ColorTokens.surfaceLow.withValues(alpha: 0.6),
+      padding: const EdgeInsets.symmetric(
+          horizontal: SpacingTokens.md, vertical: 6),
+      child: Row(
+        children: [
+          // Jersey number
+          SizedBox(
+            width: 24,
+            child: Text(
+              p.jerseyNumber != null ? '${p.jerseyNumber}' : '—',
+              style: TypographyTokens.sectionLabel.copyWith(
+                fontSize: 10,
+                color: ColorTokens.textMuted,
+              ),
+            ),
+          ),
+          // Position badge
+          Container(
+            width: 20,
+            height: 16,
+            color: posColor.withValues(alpha: 0.15),
+            child: Center(
+              child: Text(
+                p.position.isNotEmpty ? p.position[0] : '?',
+                style: TypographyTokens.sectionLabel.copyWith(
+                    fontSize: 8, color: posColor),
+              ),
+            ),
+          ),
+          const SizedBox(width: SpacingTokens.xs),
+          // Name
+          Expanded(
+            child: Text(
+              p.name,
+              style: TypographyTokens.body.copyWith(
+                fontSize: 12,
+                fontWeight: isSub ? FontWeight.w400 : FontWeight.w600,
+                color: isSub ? ColorTokens.textMuted : ColorTokens.textPrimary,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          // Stats badges
+          _buildPlayerBadges(p),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlayerBadges(MatchPlayer p) {
+    final badges = <Widget>[];
+
+    if (p.goalsScored > 0) {
+      badges.add(_badge('⚽ ${p.goalsScored}', ColorTokens.positive));
+    }
+    if (p.assists > 0) {
+      badges.add(_badge('A${p.assists}', ColorTokens.accent));
+    }
+    if (p.yellowCards > 0) {
+      badges.add(_badge('▪', const Color(0xFFFFD700)));
+    }
+    if (p.redCards > 0) {
+      badges.add(_badge('▪', ColorTokens.negative));
+    }
+    if (p.minutesPlayed != null && p.minutesPlayed! < 90 && !p.isStarter) {
+      badges.add(_badge("${p.minutesPlayed}'", ColorTokens.textMuted));
+    }
+
+    if (badges.isEmpty) return const SizedBox.shrink();
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: badges
+          .expand((b) => [b, const SizedBox(width: 3)])
+          .toList()
+        ..removeLast(),
+    );
+  }
+
+  Widget _badge(String text, Color color) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+        color: color.withValues(alpha: 0.15),
+        child: Text(text,
+            style:
+                TypographyTokens.sectionLabel.copyWith(color: color, fontSize: 9)),
+      );
+
+  Color _positionColor(String pos) {
+    switch (pos.toUpperCase()) {
+      case 'G':
+        return const Color(0xFFFFAA00);
+      case 'D':
+        return ColorTokens.positive;
+      case 'M':
+        return ColorTokens.accent;
+      case 'F':
+        return ColorTokens.negative;
+      default:
+        return ColorTokens.textMuted;
+    }
+  }
+
+  // ── ML block (upcoming) ──────────────────────────────────────────────────
 
   Widget _buildMLBlock(WeekFixture f, double uclProb) {
     final winPct  = (uclProb * 100).round();
@@ -408,12 +873,10 @@ class _MatchStatsSheetState extends State<MatchStatsSheet> {
                 Text('ȘANSĂ DE CÂȘTIG — U CLUJ',
                     style: TypographyTokens.sectionLabel),
                 const SizedBox(height: SpacingTokens.xs),
-                // Win probability large
                 Text('$winPct%',
                     style: TypographyTokens.displayHero
                         .copyWith(color: col, fontSize: 44)),
                 const SizedBox(height: SpacingTokens.xs),
-                // Breakdown row
                 Row(
                   children: [
                     _OutcomePill(label: 'CÂȘTIG', pct: winPct, color: col),
@@ -463,6 +926,8 @@ class _MatchStatsSheetState extends State<MatchStatsSheet> {
       ),
     );
   }
+
+  // ── XI section (upcoming U Cluj) ─────────────────────────────────────────
 
   Widget _buildXiSection() {
     if (_loadingXi) {
@@ -526,9 +991,189 @@ class _MatchStatsSheetState extends State<MatchStatsSheet> {
           Text(text, style: TypographyTokens.sectionLabel),
         ],
       );
-
-  String _sectionLabelStr(String s) => s;
 }
+
+// ── Actual lineup pitch widgets ──────────────────────────────────────────────
+
+class _ActualLineupPitchPanel extends StatelessWidget {
+  const _ActualLineupPitchPanel({required this.starters});
+  final List<MatchPlayer> starters;
+
+  List<double> _distributedXs(int count) {
+    if (count <= 1) return const [0.50];
+    const left = 0.18;
+    const right = 0.82;
+    final step = (right - left) / (count - 1);
+    return List<double>.generate(count, (i) => left + step * i);
+  }
+
+  List<({MatchPlayer player, Offset offset})> _placements() {
+    final gk = starters.where((p) => p.position == 'G').toList();
+    final defs = starters.where((p) => p.position == 'D').toList();
+    final mids = starters.where((p) => p.position == 'M').toList();
+    final fwds = starters.where((p) => p.position == 'F').toList();
+
+    final result = <({MatchPlayer player, Offset offset})>[];
+
+    if (gk.isNotEmpty) {
+      result.add((player: gk.first, offset: const Offset(0.50, 0.90)));
+    }
+
+    void addRow(List<MatchPlayer> players, double y) {
+      if (players.isEmpty) return;
+      final xs = _distributedXs(players.length);
+      for (var i = 0; i < players.length; i++) {
+        result.add((player: players[i], offset: Offset(xs[i], y)));
+      }
+    }
+
+    addRow(defs, 0.73);
+    addRow(mids, 0.43);
+    addRow(fwds, 0.18);
+
+    return result;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final placements = _placements();
+
+    return AspectRatio(
+      aspectRatio: 4 / 5,
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final maxLineCount = [
+            starters.where((p) => p.position == 'D').length,
+            starters.where((p) => p.position == 'M').length,
+            starters.where((p) => p.position == 'F').length,
+          ].fold(1, (a, b) => a > b ? a : b);
+
+          final base = c.maxWidth < 430 ? 44.0 : 50.0;
+          final chipSize = maxLineCount >= 5
+              ? base - 6
+              : maxLineCount >= 4
+                  ? base - 3
+                  : base;
+
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              CustomPaint(painter: FifaPitchPainter()),
+              for (final p in placements)
+                Positioned(
+                  left: p.offset.dx * c.maxWidth - chipSize / 2,
+                  top: p.offset.dy * c.maxHeight - chipSize / 2,
+                  width: chipSize,
+                  height: chipSize,
+                  child: _ActualPlayerChip(player: p.player, chipSize: chipSize),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ActualPlayerChip extends StatelessWidget {
+  const _ActualPlayerChip({required this.player, required this.chipSize});
+  final MatchPlayer player;
+  final double chipSize;
+
+  Color get _posColor {
+    switch (player.position.toUpperCase()) {
+      case 'G':
+        return const Color(0xFFFFAA00);
+      case 'D':
+        return ColorTokens.positive;
+      case 'M':
+        return ColorTokens.accent;
+      case 'F':
+        return ColorTokens.negative;
+      default:
+        return ColorTokens.textMuted;
+    }
+  }
+
+  String get _lastName {
+    final parts = player.name.trim().split(' ');
+    return parts.length > 1 ? parts.last : player.name;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasGoal = player.goalsScored > 0;
+    final hasYellow = player.yellowCards > 0;
+    final hasRed = player.redCards > 0;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: ColorTokens.surface,
+        border: Border.all(color: _posColor.withValues(alpha: 0.7), width: 1.5),
+      ),
+      padding: EdgeInsets.all(chipSize * 0.06),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Position badge
+          Text(
+            player.position.isNotEmpty ? player.position : '?',
+            style: TypographyTokens.body.copyWith(
+              fontSize: chipSize * 0.13,
+              color: _posColor,
+            ),
+          ),
+          // Jersey number (prominent)
+          Text(
+            player.jerseyNumber != null ? '${player.jerseyNumber}' : '—',
+            style: TypographyTokens.headline.copyWith(
+              fontSize: chipSize * 0.22,
+              color: _posColor,
+            ),
+          ),
+          // Last name
+          Text(
+            _lastName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TypographyTokens.body.copyWith(
+              fontSize: chipSize * 0.14,
+              fontWeight: FontWeight.w700,
+              color: ColorTokens.textPrimary,
+            ),
+          ),
+          // Event indicators
+          if (hasGoal || hasYellow || hasRed)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (hasGoal)
+                  Text('⚽',
+                      style: TextStyle(fontSize: chipSize * 0.13)),
+                if (hasYellow)
+                  Container(
+                    width: chipSize * 0.1,
+                    height: chipSize * 0.14,
+                    color: const Color(0xFFFFD700),
+                    margin: const EdgeInsets.symmetric(horizontal: 1),
+                  ),
+                if (hasRed)
+                  Container(
+                    width: chipSize * 0.1,
+                    height: chipSize * 0.14,
+                    color: ColorTokens.negative,
+                    margin: const EdgeInsets.symmetric(horizontal: 1),
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Shared widgets ───────────────────────────────────────────────────────────
 
 class _OutcomePill extends StatelessWidget {
   const _OutcomePill({
