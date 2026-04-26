@@ -16,6 +16,7 @@ from services.explanation_service import ExplanationService
 from services.feature_service import FeatureService
 from services.fixture_service import FixtureService
 from services.model_service import ModelService
+from services.prescription_service import PrescriptionService
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +136,7 @@ async def week_fixtures(
     # ── 4. ML predictions ───────────────────────────────────────────────────
     model_svc = ModelService(getattr(request.app.state, "bundle", None))
     expl_svc = ExplanationService(model_svc)
+    presc_svc = PrescriptionService(model_svc)
 
     result = []
     for f in fixtures:
@@ -150,11 +152,12 @@ async def week_fixtures(
                 ucl_is_home = _ucluj_is_home(f["home_team"], f["away_team"])
 
                 expl = expl_svc.explain(feat, ui_prob, ucl_is_home=ucl_is_home)
+                presc = presc_svc.prescribe(feat, ucl_is_home=ucl_is_home)
 
                 item["home_win_probability"] = round(ui_prob, 4)
                 item["key_drivers"] = expl["top_drivers"][:3]
                 item["top_risks"] = expl["top_risks"][:2]
-                item["narrative"] = expl["narrative"]
+                item["narrative"] = presc["text"] if presc["text"] else expl["narrative"]
             else:
                 item["home_win_probability"] = None
                 item["key_drivers"] = []
