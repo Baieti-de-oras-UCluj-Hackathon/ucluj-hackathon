@@ -22,6 +22,9 @@ router = APIRouter()
 
 SUPERLIGA_SEASON_ID = "sr:season:131507"   # Superliga 25/26
 SUPERLIGA_GROUP_REGULAR = "Superliga"
+SUPERLIGA_GROUP_CHAMPIONSHIP = "Championship Round"
+# Prefer Championship Round when active (end of season playoff phase)
+_GROUP_PRIORITY = [SUPERLIGA_GROUP_CHAMPIONSHIP, SUPERLIGA_GROUP_REGULAR]
 
 _CACHE_PATH = Path(__file__).parent / "_sr_standings_cache.json"
 _CACHE_TTL_SECONDS = 6 * 3600  # refresh every 6 h (one matchday = several hours apart)
@@ -74,32 +77,42 @@ async def _fetch_sr_standings() -> list[dict] | None:
     if not data:
         return None
 
-    rows: list[dict] = []
+    # Index groups by name for priority lookup
+    groups_by_name: dict[str, list] = {}
     for standing in data.get("standings", []):
         if standing.get("type") != "total":
             continue
         for group in standing.get("groups", []):
-            if group.get("name") != SUPERLIGA_GROUP_REGULAR:
-                continue
-            for row in group.get("standings", []):
-                competitor = row.get("competitor", {})
-                gf = row.get("goals_for") or 0
-                ga = row.get("goals_against") or 0
-                rows.append({
-                    "position": row.get("rank"),
-                    "team": competitor.get("name", ""),
-                    "played": row.get("played"),
-                    "wins": row.get("win"),
-                    "draws": row.get("draw"),
-                    "losses": row.get("loss"),
-                    "goals_for": gf,
-                    "goals_against": ga,
-                    "goal_difference": (row.get("goal_diff") if row.get("goal_diff") is not None else gf - ga),
-                    "points": row.get("points"),
-                })
-            rows.sort(key=lambda r: r["position"] or 99)
-            return rows  # only the main Superliga group
+            gname = group.get("name", "")
+            groups_by_name[gname] = group.get("standings", [])
 
+    # Pick the highest-priority group that has data
+    chosen: list = []
+    for gname in _GROUP_PRIORITY:
+        if groups_by_name.get(gname):
+            chosen = groups_by_name[gname]
+            break
+    if not chosen:
+        return None
+
+    rows: list[dict] = []
+    for row in chosen:
+        competitor = row.get("competitor", {})
+        gf = row.get("goals_for") or 0
+        ga = row.get("goals_against") or 0
+        rows.append({
+            "position": row.get("rank"),
+            "team": competitor.get("name", ""),
+            "played": row.get("played"),
+            "wins": row.get("win"),
+            "draws": row.get("draw"),
+            "losses": row.get("loss"),
+            "goals_for": gf,
+            "goals_against": ga,
+            "goal_difference": (row.get("goal_diff") if row.get("goal_diff") is not None else gf - ga),
+            "points": row.get("points"),
+        })
+    rows.sort(key=lambda r: r["position"] or 99)
     return rows if rows else None
 
 
