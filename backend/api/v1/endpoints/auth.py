@@ -1,4 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+import os
+import shutil
+import uuid
+
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models import (
@@ -99,7 +104,34 @@ async def me(user: User = Depends(get_current_user)):
         role=user.role,
         team_name=user.team_name,
         is_active=user.is_active,
+        avatar_url=user.avatar_url,
     )
+
+
+_UPLOAD_DIR = "uploads"
+os.makedirs(_UPLOAD_DIR, exist_ok=True)
+
+
+@router.put("/me/avatar")
+async def update_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(_get_db),
+):
+    file_id = str(uuid.uuid4())
+    ext = os.path.splitext(file.filename or "")[1]
+    filename = f"{file_id}{ext}"
+    file_path = os.path.join(_UPLOAD_DIR, filename)
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    result = await db.execute(select(User).where(User.id == current_user.id))
+    user = result.scalar_one()
+    user.avatar_url = f"/uploads/{filename}"
+    await db.commit()
+
+    return {"avatar_url": f"/uploads/{filename}"}
 
 
 @router.get("/teams", response_model=list[str])

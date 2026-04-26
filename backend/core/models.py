@@ -124,6 +124,7 @@ class UserResponse(BaseModel):
     role: str
     team_name: str | None = None
     is_active: bool
+    avatar_url: str | None = None
 
 
 class FirebaseRegisterRequest(BaseModel):

@@ -8,6 +8,7 @@ class AuthUser {
     required this.role,
     required this.teamName,
     required this.isActive,
+    this.avatarUrl,
   });
 
   factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(
@@ -17,6 +18,17 @@ class AuthUser {
         role: json['role']?.toString() ?? '',
         teamName: json['team_name'] as String?,
         isActive: json['is_active'] as bool? ?? false,
+        avatarUrl: json['avatar_url']?.toString(),
+      );
+
+  AuthUser copyWith({String? avatarUrl}) => AuthUser(
+        id: id,
+        email: email,
+        fullName: fullName,
+        role: role,
+        teamName: teamName,
+        isActive: isActive,
+        avatarUrl: avatarUrl ?? this.avatarUrl,
       );
 
   final String id;
@@ -25,6 +37,7 @@ class AuthUser {
   final String role;
   final String? teamName;
   final bool isActive;
+  final String? avatarUrl;
 }
 
 class AuthService {

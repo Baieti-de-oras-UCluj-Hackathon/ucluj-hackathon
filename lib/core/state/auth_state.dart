@@ -155,6 +155,12 @@ class AuthState extends ChangeNotifier {
     }
   }
 
+  void updateAvatarUrl(String url) {
+    if (_user == null) return;
+    _user = _user!.copyWith(avatarUrl: url);
+    notifyListeners();
+  }
+
   Future<void> logout() async {
     _localSignOutInProgress = true;
     try {
