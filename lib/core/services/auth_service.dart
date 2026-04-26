@@ -4,6 +4,7 @@ class AuthUser {
   AuthUser({
     required this.id,
     required this.email,
+    this.fullName,
     required this.role,
     required this.teamName,
     required this.isActive,
@@ -12,6 +13,7 @@ class AuthUser {
   factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(
         id: json['id']?.toString() ?? '',
         email: json['email']?.toString() ?? '',
+        fullName: json['full_name']?.toString(),
         role: json['role']?.toString() ?? '',
         teamName: json['team_name'] as String?,
         isActive: json['is_active'] as bool? ?? false,
@@ -19,6 +21,7 @@ class AuthUser {
 
   final String id;
   final String email;
+  final String? fullName;
   final String role;
   final String? teamName;
   final bool isActive;
@@ -37,11 +40,13 @@ class AuthService {
   Future<AuthUser> register({
     required String email,
     required String password,
+    required String fullName,
     required String teamName,
   }) async {
     final data = await _api.post('/auth/register', body: {
       'email': email,
       'password': password,
+      'full_name': fullName,
       'team_name': teamName,
     });
     return AuthUser.fromJson(data);

@@ -39,6 +39,7 @@ class _AppShellState extends State<AppShell> {
     switch (_currentTab) {
       case AppTab.dashboard:
         return DashboardScreen(
+          authState: widget.authState,
           onTabSelected: _onTabSelected,
           onProfileTap: _openProfile,
         );
@@ -47,11 +48,13 @@ class _AppShellState extends State<AppShell> {
           onTabSelected: _onTabSelected,
           onProfileTap: _openProfile,
           trackedTeam: widget.authState.user?.teamName,
+          apiClient: widget.authState.api,
         );
       case AppTab.chat:
         return ChatScreen(
           onTabSelected: _onTabSelected,
           onProfileTap: _openProfile,
+          authState: widget.authState,
         );
       case AppTab.analytics:
         return AnalyticsScreen(

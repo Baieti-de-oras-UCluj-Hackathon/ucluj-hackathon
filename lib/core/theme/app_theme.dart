@@ -36,7 +36,8 @@ class AppTheme {
         color: ColorTokens.surfaceHigh,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.zero,
+          borderRadius: BorderRadius.all(Radius.circular(4)),
+          side: BorderSide(color: Color(0x22FFFFFF)),
         ),
       ),
     );

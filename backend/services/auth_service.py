@@ -22,17 +22,22 @@ class AuthService:
     def __init__(self, session: AsyncSession):
         self._session = session
 
-    async def register(self, email: str, password: str, team_name: str) -> User:
+    async def register(self, email: str, password: str, full_name: str, team_name: str | None = None) -> User:
         result = await self._session.execute(select(User).where(User.email == email))
         if result.scalar_one_or_none() is not None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
-        clean_team_name = team_name.strip()
+        clean_team_name = (team_name or "Universitatea Cluj").strip()
         supported_teams = get_supported_teams()
-        if supported_teams and clean_team_name not in supported_teams:
+        if supported_teams and clean_team_name not in supported_teams and clean_team_name != "Universitatea Cluj":
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid team selection")
 
-        user = User(email=email, password_hash=hash_password(password), team_name=clean_team_name)
+        user = User(
+            email=email,
+            password_hash=hash_password(password),
+            full_name=full_name.strip(),
+            team_name=clean_team_name,
+        )
         self._session.add(user)
         await self._session.commit()
         await self._session.refresh(user)
@@ -120,7 +125,7 @@ class AuthService:
             },
         )
 
-    async def register_with_firebase(self, id_token: str, team_name: str) -> dict:
+    async def register_with_firebase(self, id_token: str, team_name: str | None = None) -> dict:
         from services.firebase_id_token import verify_id_token
 
         try:
@@ -143,9 +148,9 @@ class AuthService:
         if r.scalar_one_or_none() is not None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
-        clean_team_name = team_name.strip()
+        clean_team_name = (team_name or "Universitatea Cluj").strip()
         supported_teams = get_supported_teams()
-        if supported_teams and clean_team_name not in supported_teams:
+        if supported_teams and clean_team_name not in supported_teams and clean_team_name != "Universitatea Cluj":
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid team selection")
 
         user = User(
@@ -153,6 +158,7 @@ class AuthService:
             password_hash=hash_password(secrets.token_urlsafe(48)),
             team_name=clean_team_name,
             firebase_uid=uid,
+            full_name=claims.get("name"),
         )
         self._session.add(user)
         await self._session.commit()

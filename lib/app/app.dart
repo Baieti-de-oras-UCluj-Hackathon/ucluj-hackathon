@@ -41,7 +41,7 @@ class _UmbraRoAppState extends State<UmbraRoApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'UmbraRo',
+      title: 'U Cluj — Tactical Intelligence',
       theme: AppTheme.themeData,
       builder: (context, child) {
         return ColoredBox(

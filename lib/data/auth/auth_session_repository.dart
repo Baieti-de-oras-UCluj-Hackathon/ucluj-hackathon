@@ -155,11 +155,13 @@ class AuthSessionRepository {
   Future<AuthUser?> signUpWithPassword(
     String email,
     String password,
+    String fullName,
     String teamName,
   ) async {
     await auth.register(
       email: email,
       password: password,
+      fullName: fullName,
       teamName: teamName,
     );
     await auth.login(email: email, password: password);

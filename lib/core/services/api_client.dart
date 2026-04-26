@@ -81,6 +81,41 @@ class ApiClient {
     }
   }
 
+  Future<Map<String, dynamic>> uploadMultipart(
+    String path, {
+    required List<int> fileBytes,
+    required String fileName,
+    String fileField = 'file',
+  }) async {
+    try {
+      final request =
+          http.MultipartRequest('POST', Uri.parse('$_baseUrl$path'));
+
+      // Add authorization header if available
+      if (_accessToken != null) {
+        request.headers['Authorization'] = 'Bearer $_accessToken';
+      }
+
+      final multipartFile = http.MultipartFile.fromBytes(
+        fileField,
+        fileBytes,
+        filename: fileName,
+      );
+
+      request.files.add(multipartFile);
+
+      final streamedResponse = await request.send().timeout(_requestTimeout);
+      final response = await http.Response.fromStream(streamedResponse);
+
+      return _handleMap(response);
+    } on TimeoutException {
+      throw ApiException(408, 'Request timed out. Check backend connection.');
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(0, 'Network error: $e');
+    }
+  }
+
   Future<List<dynamic>> getList(String path) async {
     try {
       final response = await http
@@ -120,7 +155,8 @@ class ApiClient {
         if (d is String) {
           message = d;
         } else if (d is Map) {
-          message = d['message'] as String? ?? d['code'] as String? ?? d.toString();
+          message =
+              d['message'] as String? ?? d['code'] as String? ?? d.toString();
         } else {
           message = d.toString();
         }
@@ -141,7 +177,8 @@ class ApiException implements Exception {
     if (detail is Map) {
       return (detail as Map)['code'] == 'NEEDS_REGISTRATION';
     }
-    return message == 'NEEDS_REGISTRATION' || message.contains('NEEDS_REGISTRATION');
+    return message == 'NEEDS_REGISTRATION' ||
+        message.contains('NEEDS_REGISTRATION');
   }
 
   @override

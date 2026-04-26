@@ -1,5 +1,6 @@
 import '../../core/services/api_client.dart';
 import '../models/xi_prediction.dart';
+import '../models/match_preview.dart';
 
 class XiOpponentOption {
   XiOpponentOption({required this.id, required this.name});
@@ -39,5 +40,15 @@ class XiRepository {
     return response
         .map((item) => XiOpponentOption.fromJson(item as Map<String, dynamic>))
         .toList();
+  }
+
+  Future<MatchPreviewResponse> fetchMatchPreview({
+    required String opponentName,
+    String formation = '4-3-3',
+  }) async {
+    final encoded = Uri.encodeComponent(opponentName);
+    final response = await _apiClient
+        .get('/xi/match-preview?opponent_name=$encoded&formation=$formation');
+    return MatchPreviewResponse.fromJson(response);
   }
 }
