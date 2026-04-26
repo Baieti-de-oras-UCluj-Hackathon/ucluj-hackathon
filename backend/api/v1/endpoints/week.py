@@ -1,0 +1,288 @@
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, Request
+
+from app.config import settings
+from clients.sportradar_client import SportradarClient
+from core.dependencies import get_feature_service
+from core.security import get_current_user
+from services.explanation_service import ExplanationService
+from services.feature_service import FeatureService
+from services.fixture_service import FixtureService
+from services.model_service import ModelService
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+TRACKED_TEAM_ID = "sr:competitor:7734"
+SUPERLIGA_COMPETITION_ID = "sr:competition:152"
+TRACKED_TEAM_NAME = "Universitatea Cluj"
+
+# Cache file next to this module; TTL of 6 h (matches happen every few days)
+_CACHE_PATH = Path(__file__).parent / "_sr_fixtures_cache.json"
+_CACHE_TTL_SECONDS = 6 * 3600
+
+
+def _ucluj_is_home(home_team: str, away_team: str) -> bool:
+    home = str(home_team or "").strip().lower()
+    return ("u cluj" in home) or ("universitatea cluj" in home)
+
+
+def _to_ucluj_win_prob(home_win_prob: float, home_team: str, away_team: str) -> float:
+    """Convert P(Home Win) → P(U Cluj Win) for this fixture."""
+    if _ucluj_is_home(home_team, away_team):
+        return home_win_prob
+    return 1.0 - home_win_prob
+
+
+def _dampen_probability(prob: float, weight: float = 0.55) -> float:
+    """Reduce overconfident extremes toward 50% for UI trust/readability."""
+    p = max(0.0, min(1.0, float(prob)))
+    damped = 0.5 + (p - 0.5) * weight
+    return max(0.10, min(0.90, damped))
+
+
+def _fixture_service(request: Request) -> FixtureService:
+    return FixtureService(request.app.state.df, request.app.state.stadium_map)
+
+
+# ---------------------------------------------------------------------------
+# Cache helpers
+# ---------------------------------------------------------------------------
+
+def _load_cache() -> list[dict] | None:
+    """Return cached fixtures if cache exists and is fresh, else None."""
+    try:
+        if not _CACHE_PATH.exists():
+            return None
+        data = json.loads(_CACHE_PATH.read_text(encoding="utf-8"))
+        cached_at = datetime.fromisoformat(data["cached_at"])
+        age = (datetime.now(timezone.utc) - cached_at).total_seconds()
+        if age > _CACHE_TTL_SECONDS:
+            return None
+        return data["fixtures"]
+    except Exception:
+        return None
+
+
+def _save_cache(fixtures: list[dict]) -> None:
+    try:
+        _CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "cached_at": datetime.now(timezone.utc).isoformat(),
+            "fixtures": fixtures,
+        }
+        _CACHE_PATH.write_text(json.dumps(payload, default=str), encoding="utf-8")
+    except Exception as exc:
+        logger.warning("Could not write fixture cache: %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# Main endpoint
+# ---------------------------------------------------------------------------
+
+@router.get("/week-fixtures")
+async def week_fixtures(
+    request: Request,
+    _user=Depends(get_current_user),
+    feature_svc: FeatureService = Depends(get_feature_service),
+):
+    """Return Liga 1 fixtures for the current week with U Cluj-centric ML predictions.
+
+    home_win_probability in each response item is P(U Cluj Win), not P(Home Win).
+    key_drivers and top_risks are from U Cluj's perspective regardless of home/away.
+    """
+    now = datetime.now(timezone.utc)
+    monday = (now - timedelta(days=now.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    sunday = monday + timedelta(days=7)
+
+    # ── 1. Check local Sportradar cache (instant if fresh) ──────────────────
+    sr_all: list[dict] | None = _load_cache()
+
+    # ── 2. If cache stale/missing, try Sportradar (cap at 4 s total) ───────
+    if sr_all is None and settings.sportradar_api_key:
+        try:
+            fetched = await asyncio.wait_for(
+                _fetch_all_sr_fixtures(),
+                timeout=4.0,
+            )
+            if fetched:
+                sr_all = fetched
+                _save_cache(sr_all)  # persist for next 6 h
+        except Exception:
+            logger.warning("Sportradar fetch failed/timed-out; using CSV fallback")
+
+    # ── 3. Slice the cached/live Sportradar list to this week + nearest ─────
+    if sr_all:
+        fixtures = _slice_fixtures(sr_all, monday, sunday)
+    else:
+        # Fall back to in-memory CSV (no network, always instant)
+        fix_svc = _fixture_service(request)
+        fixtures = _csv_week_fixtures(fix_svc, monday, sunday)
+
+    # ── 4. ML predictions ───────────────────────────────────────────────────
+    model_svc = ModelService(getattr(request.app.state, "bundle", None))
+    expl_svc = ExplanationService(model_svc)
+
+    result = []
+    for f in fixtures:
+        item = dict(f)
+        try:
+            if model_svc.is_ready:
+                feat = feature_svc.build_feature_vector(
+                    f["home_team"], f["away_team"], model_svc.feature_cols
+                )
+                raw_home_prob = float(model_svc.predict_proba(feat))
+                ucl_prob = _to_ucluj_win_prob(raw_home_prob, f["home_team"], f["away_team"])
+                ui_prob = _dampen_probability(ucl_prob)
+                ucl_is_home = _ucluj_is_home(f["home_team"], f["away_team"])
+
+                expl = expl_svc.explain(feat, ui_prob, ucl_is_home=ucl_is_home)
+
+                item["home_win_probability"] = round(ui_prob, 4)
+                item["key_drivers"] = expl["top_drivers"][:3]
+                item["top_risks"] = expl["top_risks"][:2]
+                item["narrative"] = expl["narrative"]
+            else:
+                item["home_win_probability"] = None
+                item["key_drivers"] = []
+                item["top_risks"] = []
+                item["narrative"] = (
+                    "Predictive model is temporarily unavailable. "
+                    "XI recommendation and tactical form metrics remain active."
+                )
+        except Exception:
+            item["home_win_probability"] = None
+            item["key_drivers"] = []
+            item["top_risks"] = []
+            item["narrative"] = ""
+        result.append(item)
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Sportradar: fetch the full U Cluj schedule for 2025 (cached for 6 h)
+# ---------------------------------------------------------------------------
+
+async def _fetch_all_sr_fixtures() -> list[dict]:
+    """Fetch the complete U Cluj competitor schedule from Sportradar.
+
+    Returns a flat list of all fixture dicts (past + future).
+    Runs concurrent daily calls; the entire function is capped at 4 s by caller.
+    """
+    client = SportradarClient()
+    data = await client.competitor_schedules(TRACKED_TEAM_ID)
+    fixtures: list[dict] = []
+
+    for raw_evt in (data or {}).get("schedules", []):
+        se = raw_evt.get("sport_event", {})
+        status = raw_evt.get("sport_event_status", {})
+        ctx = se.get("sport_event_context", {})
+        comp = ctx.get("competition", {})
+        if comp.get("id") != SUPERLIGA_COMPETITION_ID:
+            continue
+
+        dt = _parse_dt(_event_kickoff(se))
+        if dt.year < 2025:
+            continue
+
+        competitors = se.get("competitors", [])
+        home = _find_qualifier(competitors, "home")
+        away = _find_qualifier(competitors, "away")
+        if not home or not away:
+            continue
+
+        fixtures.append({
+            "match_id": se.get("id", ""),
+            "season": (ctx.get("season", {}) or {}).get("id", ""),
+            "match_date": _event_kickoff(se),
+            "home_team": home.get("name", ""),
+            "away_team": away.get("name", ""),
+            "home_score": status.get("home_score"),
+            "away_score": status.get("away_score"),
+            "venue": (se.get("venue", {}) or {}).get("name", ""),
+        })
+
+    fixtures.sort(key=lambda f: f.get("match_date", ""))
+    return fixtures
+
+
+def _slice_fixtures(all_fixtures: list[dict], monday: datetime, sunday: datetime) -> list[dict]:
+    """Return this week's fixtures; fall back to nearest past + next upcoming."""
+    week = [
+        f for f in all_fixtures
+        if monday <= _parse_dt(f.get("match_date", "")) < sunday
+    ]
+    if week:
+        return week
+
+    past = [f for f in all_fixtures if _parse_dt(f.get("match_date", "")) < monday]
+    future = [f for f in all_fixtures if _parse_dt(f.get("match_date", "")) >= sunday]
+    out: list[dict] = []
+    if past:
+        out.append(past[-1])
+    if future:
+        out.append(future[0])
+    return out
+
+
+# ---------------------------------------------------------------------------
+# CSV-based fixture source (instant fallback, no network)
+# ---------------------------------------------------------------------------
+
+def _csv_week_fixtures(fix_svc: FixtureService, monday: datetime, sunday: datetime) -> list[dict]:
+    """Return fixtures involving U Cluj within [monday, sunday) from in-memory CSV."""
+    all_f = fix_svc.list_fixtures(team=TRACKED_TEAM_NAME, limit=500)
+    week = [f for f in all_f if monday <= _parse_dt(f.get("match_date", "")) < sunday]
+    if week:
+        return sorted(week, key=lambda f: f.get("match_date", ""))
+
+    # No match this week — show nearest surrounding fixtures
+    past = [f for f in all_f if _parse_dt(f.get("match_date", "")) < monday]
+    future = [f for f in all_f if _parse_dt(f.get("match_date", "")) >= sunday]
+    out: list[dict] = []
+    if past:
+        out.append(past[-1])
+    if future:
+        out.append(future[0])
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _parse_dt(val) -> datetime:
+    if isinstance(val, datetime):
+        return val if val.tzinfo else val.replace(tzinfo=timezone.utc)
+    try:
+        s = str(val)
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except Exception:
+        return datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+
+def _find_qualifier(competitors: list[dict], qualifier: str) -> dict | None:
+    for c in competitors:
+        if c.get("qualifier") == qualifier:
+            return c
+    return None
+
+
+def _event_kickoff(sport_event: dict) -> str:
+    return (
+        sport_event.get("scheduled")
+        or sport_event.get("start_time")
+        or ""
+    )

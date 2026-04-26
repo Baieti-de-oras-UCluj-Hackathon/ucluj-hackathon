@@ -5,6 +5,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from catboost import Pool
 
 logger = logging.getLogger(__name__)
 
@@ -93,3 +94,36 @@ class ModelService:
             return {}
 
         return dict(zip(self._feature_cols, map(float, imp)))
+
+    def local_contributions(self, features: pd.DataFrame) -> dict[str, float]:
+        """Return per-row signed SHAP contributions for the first row."""
+        if not self._ready:
+            return {}
+
+        X = features[self._feature_cols].copy()
+        if self._imputer is not None:
+            X = pd.DataFrame(
+                self._imputer.transform(X),
+                columns=self._feature_cols,
+            )
+
+        model = self._raw_model or self._model
+        if not hasattr(model, "get_feature_importance"):
+            return {}
+
+        try:
+            shap = model.get_feature_importance(
+                Pool(X, feature_names=self._feature_cols),
+                type="ShapValues",
+            )
+            if shap is None or len(shap) == 0:
+                return {}
+            row = np.array(shap[0], dtype=float)
+            if row.size == len(self._feature_cols) + 1:
+                row = row[:-1]  # drop expected value term
+            if row.size != len(self._feature_cols):
+                return {}
+            return dict(zip(self._feature_cols, map(float, row)))
+        except Exception:
+            logger.exception("Failed to compute local SHAP contributions")
+            return {}

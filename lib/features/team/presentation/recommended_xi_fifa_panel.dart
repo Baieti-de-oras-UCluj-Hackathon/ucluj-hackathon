@@ -1,0 +1,795 @@
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+
+import '../../../core/theme/color_tokens.dart';
+import '../../../core/theme/spacing_tokens.dart';
+import '../../../core/theme/typography_tokens.dart';
+import '../../../data/models/match_preview.dart';
+
+Color recommendedXiRoleColor(String g) {
+  switch (g) {
+    case 'GK':
+      return ColorTokens.accent;
+    case 'DEF':
+      return ColorTokens.accentBlue;
+    case 'MID':
+      return ColorTokens.positive;
+    case 'FWD':
+      return ColorTokens.negative;
+    default:
+      return ColorTokens.textMuted;
+  }
+}
+
+double _keyStatMax(MatchPreviewPlayer p) {
+  switch (p.roleGroup) {
+    case 'GK':
+      return 6;
+    case 'DEF':
+      return 8;
+    case 'FWD':
+      return 1.2;
+    default:
+      return 4;
+  }
+}
+
+/// FIFA-style pitch + bench + player detail (dashboard sheet & match preview).
+class RecommendedXiFifaPanel extends StatefulWidget {
+  const RecommendedXiFifaPanel({
+    super.key,
+    required this.preview,
+    required this.formation,
+    this.ratingForDisplay = _defaultRatingForDisplay,
+  });
+
+  final MatchPreviewResponse preview;
+  final String formation;
+  final double Function(MatchPreviewPlayer p) ratingForDisplay;
+
+  static double _defaultRatingForDisplay(MatchPreviewPlayer p) =>
+      p.predictedScore;
+
+  @override
+  State<RecommendedXiFifaPanel> createState() => _RecommendedXiFifaPanelState();
+}
+
+class _RecommendedXiFifaPanelState extends State<RecommendedXiFifaPanel> {
+  MatchPreviewPlayer? _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _pickDefault();
+  }
+
+  @override
+  void didUpdateWidget(covariant RecommendedXiFifaPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.preview != widget.preview ||
+        oldWidget.formation != widget.formation) {
+      _pickDefault();
+    }
+  }
+
+  void _pickDefault() {
+    final xi = widget.preview.startingXi;
+    _selected = xi.isNotEmpty ? xi.first : null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.preview;
+    final rf = widget.ratingForDisplay;
+
+    return LayoutBuilder(
+      builder: (context, c) {
+        final wide = c.maxWidth >= 640;
+        final statsRow = _statsBar(p.teamStats);
+        final left = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            statsRow,
+            const SizedBox(height: SpacingTokens.md),
+            AspectRatio(
+              aspectRatio: 4 / 5,
+              child: FifaRecommendedXiPitch(
+                formation: widget.formation,
+                players: p.startingXi,
+                selected: _selected,
+                ratingForDisplay: rf,
+                onSelect: (pl) => setState(() => _selected = pl),
+              ),
+            ),
+            const SizedBox(height: SpacingTokens.md),
+            Text('SUBSTITUTES',
+                style: TypographyTokens.sectionLabel.copyWith(fontSize: 9)),
+            const SizedBox(height: SpacingTokens.sm),
+            _benchWrap(p.bench, rf),
+          ],
+        );
+
+        final detail = _PlayerDetailColumn(
+          player: _selected,
+          ratingForDisplay: rf,
+        );
+
+        if (wide) {
+          return SizedBox(
+            height: 520,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 11,
+                  child: SingleChildScrollView(child: left),
+                ),
+                Container(width: 1, color: ColorTokens.divider),
+                Expanded(
+                  flex: 9,
+                  child: detail,
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            left,
+            const Divider(color: ColorTokens.divider, height: 1),
+            SizedBox(height: 360, child: detail),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _statsBar(MatchTeamStats s) {
+    return Row(
+      children: [
+        _statCell('FORMĂ', s.avgRecentForm.toStringAsFixed(1)),
+        _statCell('PERF', s.avgPerformanceScore.toStringAsFixed(1)),
+        _statCell('PAS%', '${s.avgPassAccuracy.toStringAsFixed(0)}%'),
+        _statCell('DUEL%', '${s.avgDuelWinRate.toStringAsFixed(0)}%'),
+      ],
+    );
+  }
+
+  Widget _statCell(String label, String value) {
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.only(right: 2),
+        color: ColorTokens.surfaceHigh,
+        padding: const EdgeInsets.symmetric(vertical: SpacingTokens.sm),
+        child: Column(
+          children: [
+            Text(value,
+                style: TypographyTokens.headline.copyWith(fontSize: 15)),
+            Text(label,
+                style: TypographyTokens.body
+                    .copyWith(color: ColorTokens.textMuted, fontSize: 9),
+                textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _benchWrap(List<MatchPreviewPlayer> bench, double Function(MatchPreviewPlayer p) rf) {
+    if (bench.isEmpty) {
+      return Text('—',
+          style: TypographyTokens.body.copyWith(color: ColorTokens.textMuted));
+    }
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: bench.map((pl) {
+        final sel = _selected?.playerId == pl.playerId;
+        return GestureDetector(
+          onTap: () => setState(() => _selected = pl),
+          child: Container(
+            width: 88,
+            padding: const EdgeInsets.all(SpacingTokens.xs),
+            decoration: BoxDecoration(
+              color: sel ? ColorTokens.surfaceHigh : ColorTokens.surfaceLow,
+              border: Border.all(
+                color: sel ? ColorTokens.accent : ColorTokens.divider,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  pl.roleGroup,
+                  style: TypographyTokens.body.copyWith(
+                    fontSize: 9,
+                    color: recommendedXiRoleColor(pl.roleGroup),
+                  ),
+                ),
+                Text(
+                  pl.shortName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TypographyTokens.body
+                      .copyWith(fontWeight: FontWeight.w700, fontSize: 10),
+                ),
+                Text(
+                  rf(pl).toStringAsFixed(0),
+                  style: TypographyTokens.headline
+                      .copyWith(color: ColorTokens.accent, fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _PlayerDetailColumn extends StatelessWidget {
+  const _PlayerDetailColumn({
+    required this.player,
+    required this.ratingForDisplay,
+  });
+
+  final MatchPreviewPlayer? player;
+  final double Function(MatchPreviewPlayer p) ratingForDisplay;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = player;
+    if (p == null) {
+      return Center(
+        child: Text(
+          'Select a player',
+          style: TypographyTokens.body.copyWith(color: ColorTokens.textMuted),
+        ),
+      );
+    }
+    final hero = ratingForDisplay(p);
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(SpacingTokens.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                color: ColorTokens.surfaceHigh,
+                alignment: Alignment.center,
+                child: Text(
+                  p.roleGroup,
+                  style: TypographyTokens.headline.copyWith(
+                    fontSize: 22,
+                    color: recommendedXiRoleColor(p.roleGroup),
+                  ),
+                ),
+              ),
+              const SizedBox(width: SpacingTokens.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      hero.toStringAsFixed(0),
+                      style: TypographyTokens.displayHero.copyWith(
+                        fontSize: 44,
+                        height: 0.9,
+                        color: ColorTokens.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      p.shortName.toUpperCase(),
+                      style: TypographyTokens.headline.copyWith(fontSize: 14),
+                    ),
+                    Text(
+                      p.role.toUpperCase(),
+                      style: TypographyTokens.body
+                          .copyWith(color: ColorTokens.textMuted, fontSize: 10),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: SpacingTokens.lg),
+          Text('PLAYER PROFILE',
+              style: TypographyTokens.sectionLabel.copyWith(fontSize: 9)),
+          const SizedBox(height: SpacingTokens.sm),
+          SizedBox(
+            height: 200,
+            child: FifaPlayerRadar(player: p),
+          ),
+          const SizedBox(height: SpacingTokens.lg),
+          Text('KEY METRICS',
+              style: TypographyTokens.sectionLabel.copyWith(fontSize: 9)),
+          const SizedBox(height: SpacingTokens.sm),
+          _metricBar('Form', p.recentFormScore, 60),
+          _metricBar('Performance', p.performanceScore, 100),
+          _metricBar('Pass %', p.passAccuracy, 100),
+          _metricBar('Duel %', p.duelWinRate, 100),
+          _metricBar(p.keyStatLabel, p.keyStatValue, _keyStatMax(p)),
+          _metricBar('Minutes', p.totalMinutes.toDouble(), 2000),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricBar(String label, double value, double maxV) {
+    final t = (value / maxV).clamp(0.0, 1.0);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: SpacingTokens.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(label,
+                  style: TypographyTokens.body
+                      .copyWith(fontSize: 11, color: ColorTokens.textMuted)),
+              Text(
+                value.toStringAsFixed(2),
+                style: TypographyTokens.body.copyWith(fontSize: 11),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Container(
+            height: 6,
+            width: double.infinity,
+            color: ColorTokens.surfaceHigh,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FractionallySizedBox(
+                widthFactor: t,
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  height: 6,
+                  color: t > 0.66
+                      ? ColorTokens.positive
+                      : t > 0.33
+                          ? ColorTokens.accent
+                          : ColorTokens.negative,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class FifaRecommendedXiPitch extends StatelessWidget {
+  const FifaRecommendedXiPitch({
+    super.key,
+    required this.formation,
+    required this.players,
+    required this.selected,
+    required this.onSelect,
+    required this.ratingForDisplay,
+  });
+
+  final String formation;
+  final List<MatchPreviewPlayer> players;
+  final MatchPreviewPlayer? selected;
+  final ValueChanged<MatchPreviewPlayer> onSelect;
+  final double Function(MatchPreviewPlayer p) ratingForDisplay;
+
+  List<_PitchPlacement> _placements() {
+    final gk = players.where((p) => p.roleGroup == 'GK').toList();
+    final defs = players.where((p) => p.roleGroup == 'DEF').toList();
+    final mids = players.where((p) => p.roleGroup == 'MID').toList();
+    final fwds = players.where((p) => p.roleGroup == 'FWD').toList();
+
+    var defIndex = 0;
+    var midIndex = 0;
+    var fwdIndex = 0;
+
+    final out = <_PitchPlacement>[];
+    if (gk.isNotEmpty) {
+      out.add(_PitchPlacement(player: gk.first, offset: const Offset(0.50, 0.90)));
+    }
+
+    final lines = _formationTemplate(formation);
+    for (final line in lines) {
+      for (var i = 0; i < line.xs.length; i++) {
+        MatchPreviewPlayer? player;
+        if (line.role == 'DEF') {
+          if (defIndex < defs.length) player = defs[defIndex++];
+        } else if (line.role == 'MID') {
+          if (midIndex < mids.length) player = mids[midIndex++];
+        } else {
+          if (fwdIndex < fwds.length) player = fwds[fwdIndex++];
+        }
+        if (player != null) {
+          out.add(_PitchPlacement(player: player, offset: Offset(line.xs[i], line.y)));
+        }
+      }
+    }
+    return out;
+  }
+
+  List<_PitchLine> _formationTemplate(String key) {
+    switch (key) {
+      case '3-1-4-2':
+        // GK + 3 DEF + 1 CDM + 4 wide/central MID + 2 FWD
+        return const [
+          _PitchLine(role: 'DEF', y: 0.73, xs: [0.26, 0.50, 0.74]),
+          _PitchLine(role: 'MID', y: 0.58, xs: [0.50]),
+          _PitchLine(role: 'MID', y: 0.40, xs: [0.10, 0.36, 0.64, 0.90]),
+          _PitchLine(role: 'FWD', y: 0.18, xs: [0.38, 0.62]),
+        ];
+      case '4-2-3-1':
+        return const [
+          _PitchLine(role: 'DEF', y: 0.73, xs: [0.14, 0.38, 0.62, 0.86]),
+          _PitchLine(role: 'MID', y: 0.56, xs: [0.38, 0.62]),
+          _PitchLine(role: 'MID', y: 0.38, xs: [0.18, 0.50, 0.82]),
+          _PitchLine(role: 'FWD', y: 0.18, xs: [0.50]),
+        ];
+      case '4-4-2':
+        return const [
+          _PitchLine(role: 'DEF', y: 0.73, xs: [0.14, 0.38, 0.62, 0.86]),
+          _PitchLine(role: 'MID', y: 0.43, xs: [0.14, 0.38, 0.62, 0.86]),
+          _PitchLine(role: 'FWD', y: 0.18, xs: [0.38, 0.62]),
+        ];
+      case '3-5-2':
+        return const [
+          _PitchLine(role: 'DEF', y: 0.73, xs: [0.26, 0.50, 0.74]),
+          _PitchLine(role: 'MID', y: 0.40, xs: [0.14, 0.32, 0.50, 0.68, 0.86]),
+          _PitchLine(role: 'FWD', y: 0.18, xs: [0.38, 0.62]),
+        ];
+      case '3-4-3':
+        return const [
+          _PitchLine(role: 'DEF', y: 0.73, xs: [0.26, 0.50, 0.74]),
+          _PitchLine(role: 'MID', y: 0.43, xs: [0.14, 0.38, 0.62, 0.86]),
+          _PitchLine(role: 'FWD', y: 0.18, xs: [0.22, 0.50, 0.78]),
+        ];
+      case '5-3-2':
+        return const [
+          _PitchLine(role: 'DEF', y: 0.73, xs: [0.08, 0.26, 0.50, 0.74, 0.92]),
+          _PitchLine(role: 'MID', y: 0.43, xs: [0.26, 0.50, 0.74]),
+          _PitchLine(role: 'FWD', y: 0.18, xs: [0.38, 0.62]),
+        ];
+      case '5-4-1':
+        return const [
+          _PitchLine(role: 'DEF', y: 0.73, xs: [0.08, 0.26, 0.50, 0.74, 0.92]),
+          _PitchLine(role: 'MID', y: 0.43, xs: [0.14, 0.38, 0.62, 0.86]),
+          _PitchLine(role: 'FWD', y: 0.18, xs: [0.50]),
+        ];
+      default:
+        return _genericTemplate(key);
+    }
+  }
+
+  List<_PitchLine> _genericTemplate(String key) {
+    final parts = key
+        .split('-')
+        .map((v) => int.tryParse(v))
+        .whereType<int>()
+        .toList();
+    if (parts.length < 3) {
+      return const [
+        _PitchLine(role: 'DEF', y: 0.73, xs: [0.14, 0.38, 0.62, 0.86]),
+        _PitchLine(role: 'MID', y: 0.43, xs: [0.28, 0.50, 0.72]),
+        _PitchLine(role: 'FWD', y: 0.18, xs: [0.22, 0.50, 0.78]),
+      ];
+    }
+
+    final def = parts.first;
+    final fwd = parts.last;
+    final midLines = parts.sublist(1, parts.length - 1);
+    final lines = <_PitchLine>[
+      _PitchLine(role: 'DEF', y: 0.73, xs: _distributedXs(def)),
+    ];
+
+    const yBottom = 0.56;
+    const yTop = 0.34;
+    final step = midLines.length <= 1 ? 0.0 : (yBottom - yTop) / (midLines.length - 1);
+    for (var i = 0; i < midLines.length; i++) {
+      lines.add(_PitchLine(
+        role: 'MID',
+        y: yBottom - i * step,
+        xs: _distributedXs(midLines[i]),
+      ));
+    }
+    lines.add(_PitchLine(role: 'FWD', y: 0.18, xs: _distributedXs(fwd)));
+    return lines;
+  }
+
+  List<double> _distributedXs(int count) {
+    if (count <= 1) return const [0.50];
+    const left = 0.18;
+    const right = 0.82;
+    final step = (right - left) / (count - 1);
+    return List<double>.generate(count, (i) => left + step * i);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final placements = _placements();
+    final maxLineCount = _maxLineCountFor(formation);
+
+    return LayoutBuilder(
+      builder: (context, c) {
+        final chipSize = _chipSizeFor(c.maxWidth, maxLineCount);
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            CustomPaint(painter: FifaPitchPainter()),
+            for (final p in placements)
+              Positioned(
+                left: p.offset.dx * c.maxWidth - chipSize / 2,
+                top: p.offset.dy * c.maxHeight - chipSize / 2,
+                width: chipSize,
+                height: chipSize,
+                child: FifaPitchPlayerChip(
+                  player: p.player,
+                  selected: selected?.playerId == p.player.playerId,
+                  rating: ratingForDisplay(p.player),
+                  chipSize: chipSize,
+                  onTap: () => onSelect(p.player),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  int _maxLineCountFor(String key) {
+    final tpl = _formationTemplate(key);
+    var maxCount = 1;
+    for (final line in tpl) {
+      if (line.xs.length > maxCount) maxCount = line.xs.length;
+    }
+    return maxCount;
+  }
+
+  double _chipSizeFor(double width, int maxLineCount) {
+    final base = width < 430 ? 44.0 : 50.0;
+    if (maxLineCount >= 5) return base - 6;
+    if (maxLineCount >= 4) return base - 3;
+    return base;
+  }
+}
+
+class _PitchLine {
+  const _PitchLine({required this.role, required this.y, required this.xs});
+  final String role;
+  final double y;
+  final List<double> xs;
+}
+
+class _PitchPlacement {
+  const _PitchPlacement({required this.player, required this.offset});
+  final MatchPreviewPlayer player;
+  final Offset offset;
+}
+
+class FifaPitchPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final bg = Paint()..color = const Color(0xFF0D1A12);
+    canvas.drawRect(rect, bg);
+
+    final line = Paint()
+      ..color = Colors.white.withValues(alpha: 0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+
+    canvas.drawRect(rect.deflate(8), line);
+
+    final midY = size.height / 2;
+    canvas.drawLine(Offset(8, midY), Offset(size.width - 8, midY), line);
+
+    final center = Offset(size.width / 2, midY);
+    canvas.drawCircle(center, math.min(size.width, size.height) * 0.12, line);
+
+    final boxW = size.width * 0.36;
+    final boxH = size.height * 0.18;
+    canvas.drawRect(
+      Rect.fromCenter(
+        center: Offset(size.width / 2, 8 + boxH / 2),
+        width: boxW,
+        height: boxH,
+      ),
+      line,
+    );
+    canvas.drawRect(
+      Rect.fromCenter(
+        center: Offset(size.width / 2, size.height - 8 - boxH / 2),
+        width: boxW,
+        height: boxH,
+      ),
+      line,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class FifaPitchPlayerChip extends StatelessWidget {
+  const FifaPitchPlayerChip({
+    super.key,
+    required this.player,
+    required this.selected,
+    required this.rating,
+    required this.chipSize,
+    required this.onTap,
+  });
+
+  final MatchPreviewPlayer player;
+  final bool selected;
+  final double rating;
+  final double chipSize;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: ColorTokens.surface,
+          border: Border.all(
+            color: selected ? ColorTokens.accent : ColorTokens.divider,
+            width: selected ? 2 : 1,
+          ),
+        ),
+        padding: EdgeInsets.all(chipSize * 0.08),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              player.roleGroup,
+              style: TypographyTokens.body.copyWith(
+                fontSize: chipSize * 0.13,
+                color: recommendedXiRoleColor(player.roleGroup),
+              ),
+            ),
+            Text(
+              player.shortName.split(' ').last,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TypographyTokens.body.copyWith(
+                fontSize: chipSize * 0.16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            Text(
+              rating.toStringAsFixed(0),
+              style: TypographyTokens.headline.copyWith(
+                color: ColorTokens.accent,
+                fontSize: chipSize * 0.22,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class FifaPlayerRadar extends StatelessWidget {
+  const FifaPlayerRadar({super.key, required this.player});
+
+  final MatchPreviewPlayer player;
+
+  List<double> _values() {
+    return [
+      (player.recentFormScore / 60).clamp(0.0, 1.0),
+      (player.performanceScore / 100).clamp(0.0, 1.0),
+      (player.passAccuracy / 100).clamp(0.0, 1.0),
+      (player.duelWinRate / 100).clamp(0.0, 1.0),
+      (player.keyStatValue /
+              (player.roleGroup == 'GK'
+                  ? 6.0
+                  : player.roleGroup == 'DEF'
+                      ? 8.0
+                      : player.roleGroup == 'FWD'
+                          ? 1.2
+                          : 4.0))
+          .clamp(0.0, 1.0),
+      (player.totalMinutes / 2000).clamp(0.0, 1.0),
+    ];
+  }
+
+  static const _labels = ['FORM', 'PERF', 'PAS', 'DUEL', 'KEY', 'MIN'];
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: FifaRadarPainter(values: _values(), labels: _labels),
+      child: const SizedBox.expand(),
+    );
+  }
+}
+
+class FifaRadarPainter extends CustomPainter {
+  FifaRadarPainter({required this.values, required this.labels});
+
+  final List<double> values;
+  final List<String> labels;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, size.height / 2 + 8);
+    final r = math.min(size.width, size.height) * 0.38;
+    const n = 6;
+    final points = <Offset>[];
+
+    for (var i = 0; i < n; i++) {
+      final ang = -math.pi / 2 + (2 * math.pi * i / n);
+      final vr = r * values[i].clamp(0.05, 1.0);
+      points.add(Offset(c.dx + vr * math.cos(ang), c.dy + vr * math.sin(ang)));
+    }
+
+    final grid = Paint()
+      ..color = Colors.white.withValues(alpha: 0.15)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    for (var k = 1; k <= 3; k++) {
+      final rr = r * k / 3;
+      final ring = <Offset>[];
+      for (var i = 0; i < n; i++) {
+        final ang = -math.pi / 2 + (2 * math.pi * i / n);
+        ring.add(Offset(c.dx + rr * math.cos(ang), c.dy + rr * math.sin(ang)));
+      }
+      final path = Path()..moveTo(ring[0].dx, ring[0].dy);
+      for (var i = 1; i < n; i++) {
+        path.lineTo(ring[i].dx, ring[i].dy);
+      }
+      path.close();
+      canvas.drawPath(path, grid);
+    }
+
+    final fill = Paint()
+      ..color = ColorTokens.accent.withValues(alpha: 0.25)
+      ..style = PaintingStyle.fill;
+    final border = Paint()
+      ..color = ColorTokens.accent
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+
+    final poly = Path()..moveTo(points[0].dx, points[0].dy);
+    for (var i = 1; i < n; i++) {
+      poly.lineTo(points[i].dx, points[i].dy);
+    }
+    poly.close();
+    canvas.drawPath(poly, fill);
+    canvas.drawPath(poly, border);
+
+    final tp = TextPainter(textDirection: TextDirection.ltr);
+    for (var i = 0; i < n; i++) {
+      final ang = -math.pi / 2 + (2 * math.pi * i / n);
+      final lx = c.dx + (r + 14) * math.cos(ang);
+      final ly = c.dy + (r + 14) * math.sin(ang);
+      tp.text = TextSpan(
+        text: labels[i],
+        style: const TextStyle(
+          color: ColorTokens.textMuted,
+          fontSize: 8,
+        ),
+      );
+      tp.layout();
+      tp.paint(canvas, Offset(lx - tp.width / 2, ly - tp.height / 2));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant FifaRadarPainter oldDelegate) =>
+      oldDelegate.values != values;
+}
