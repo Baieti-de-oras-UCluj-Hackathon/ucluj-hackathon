@@ -89,30 +89,30 @@ class _MatchStatsSheetState extends State<MatchStatsSheet> {
                 _buildMatchStatus(f),
                 const SizedBox(height: SpacingTokens.xl),
 
-                // ML prediction block
-                if (uclProb != null) ...[
+                // ML prediction block — only for upcoming matches
+                if (!f.isCompleted && uclProb != null) ...[
                   _buildMLBlock(f, uclProb),
                   const SizedBox(height: SpacingTokens.xl),
                 ],
 
-                // Key drivers
-                if (f.keyDrivers.isNotEmpty) ...[
+                // Key drivers — only for upcoming matches
+                if (!f.isCompleted && f.keyDrivers.isNotEmpty) ...[
                   _sectionLabel('FACTORI CHEIE AI'),
                   const SizedBox(height: SpacingTokens.sm),
                   ...f.keyDrivers.map(_buildDriverRow),
                   const SizedBox(height: SpacingTokens.md),
                 ],
 
-                // Risks
-                if (f.topRisks.isNotEmpty) ...[
+                // Risks — only for upcoming matches
+                if (!f.isCompleted && f.topRisks.isNotEmpty) ...[
                   _sectionLabel('RISCURI'),
                   const SizedBox(height: SpacingTokens.sm),
                   ...f.topRisks.map((r) => _buildDriverRow(r, isRisk: true)),
                   const SizedBox(height: SpacingTokens.md),
                 ],
 
-                // Narrative
-                if (f.narrative.isNotEmpty) ...[
+                // Narrative — only for upcoming matches
+                if (!f.isCompleted && f.narrative.isNotEmpty) ...[
                   _sectionLabel('DIAGNOSTIC'),
                   const SizedBox(height: SpacingTokens.sm),
                   Container(
