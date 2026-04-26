@@ -144,12 +144,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildWeekHeader() {
-    final now = DateTime.now();
-    final monday = now.subtract(Duration(days: now.weekday - 1));
-    final sunday = monday.add(const Duration(days: 6));
-    final label =
-        '${monday.day.toString().padLeft(2, '0')}.${monday.month.toString().padLeft(2, '0')} — '
-        '${sunday.day.toString().padLeft(2, '0')}.${sunday.month.toString().padLeft(2, '0')} ${sunday.year}';
+    final label = _visibleRangeLabel();
 
     return Container(
       color: ColorTokens.surfaceLow,
@@ -158,12 +153,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           const Icon(Icons.calendar_today, color: ColorTokens.accent, size: 16),
           const SizedBox(width: SpacingTokens.sm),
-          Text('SĂPTĂMÂNA CURENTĂ', style: TypographyTokens.sectionLabel),
+          Text('INTERVAL AFIȘAT', style: TypographyTokens.sectionLabel),
           const Spacer(),
           Text(label, style: TypographyTokens.sectionLabel.copyWith(color: ColorTokens.accent)),
         ],
       ),
     );
+  }
+
+  String _visibleRangeLabel() {
+    final parsed = _fixtures
+        .map((f) => DateTime.tryParse(f.matchDate))
+        .whereType<DateTime>()
+        .toList()
+      ..sort();
+
+    if (parsed.isNotEmpty) {
+      final start = parsed.first;
+      final end = parsed.last;
+      return '${_fmtDate(start, withYear: start.year != end.year)} — ${_fmtDate(end, withYear: true)}';
+    }
+
+    final now = DateTime.now();
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+    final sunday = monday.add(const Duration(days: 6));
+    return '${_fmtDate(monday)} — ${_fmtDate(sunday, withYear: true)}';
+  }
+
+  String _fmtDate(DateTime d, {bool withYear = false}) {
+    final dd = d.day.toString().padLeft(2, '0');
+    final mm = d.month.toString().padLeft(2, '0');
+    if (withYear) return '$dd.$mm.${d.year}';
+    return '$dd.$mm';
   }
 
   Widget _buildSectionLabel(String text, Color color) {
@@ -177,11 +198,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildMatchCard(WeekFixture f, {required bool highlight}) {
-    final isHome = f.homeTeam.toLowerCase().contains('universitatea cluj');
+    final isHome = f.isUCLujHome;
+    // Backend returns P(U Cluj Win) already — use directly, no flip needed.
     final prob = f.homeWinProbability;
-    final uclProb = highlight
-        ? (isHome ? prob : (prob != null ? 1 - prob : null))
-        : prob;
+    final uclProb = highlight ? prob : prob;
 
     final probPct = uclProb != null ? '${(uclProb * 100).round()}%' : '--';
     final probColor = uclProb == null

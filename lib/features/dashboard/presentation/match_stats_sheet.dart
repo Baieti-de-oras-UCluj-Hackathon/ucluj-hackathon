@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/supported_formations.dart';
 import '../../../core/theme/color_tokens.dart';
 import '../../../core/theme/spacing_tokens.dart';
 import '../../../core/theme/typography_tokens.dart';
 import '../../../data/models/week_fixture.dart';
 import '../../../data/models/match_preview.dart';
 import '../../../data/repositories/xi_repository.dart';
+import '../../team/presentation/recommended_xi_fifa_panel.dart';
 
 class MatchStatsSheet extends StatefulWidget {
   const MatchStatsSheet({
@@ -28,7 +30,7 @@ class _MatchStatsSheetState extends State<MatchStatsSheet> {
   String? _xiError;
   String _formation = '4-3-3';
 
-  static const _formations = ['4-3-3', '4-4-2', '4-2-3-1', '3-5-2', '5-3-2'];
+  static const _formations = kSupportedFormations;
 
   @override
   void initState() {
@@ -55,10 +57,8 @@ class _MatchStatsSheetState extends State<MatchStatsSheet> {
   Widget build(BuildContext context) {
     final f = widget.fixture;
     final screenH = MediaQuery.of(context).size.height;
-    final isHome = f.isUCLujHome;
-    final uclProb = f.homeWinProbability != null
-        ? (isHome ? f.homeWinProbability! : 1 - f.homeWinProbability!)
-        : null;
+    // Backend now returns U Cluj-centric win probability for this card.
+    final uclProb = f.homeWinProbability;
 
     return Container(
       height: screenH * 0.92,

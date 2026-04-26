@@ -5,6 +5,7 @@ import pandas as pd
 from ml.feature_config import OPTIMIZABLE_LABELS
 from services.model_service import ModelService
 
+# Labels when U Cluj is the HOME team (or generic perspective)
 FEATURE_LABELS: dict[str, str] = {
     "Computed_Elo_Diff": "Elo Advantage",
     "Computed_HFA": "Home Field Advantage",
@@ -35,6 +36,43 @@ FEATURE_LABELS: dict[str, str] = {
     **OPTIMIZABLE_LABELS,
 }
 
+# Labels when U Cluj is the AWAY team — Home_* = opponent, Away_* = U Cluj
+FEATURE_LABELS_AWAY: dict[str, str] = {
+    "Computed_Elo_Diff": "Opponent Elo Lead",
+    "Computed_HFA": "Opponent Home Advantage",
+    "Computed_Home_Elo": "Opponent Elo Rating",
+    "Computed_Away_Elo": "Team Elo Rating",
+    "Home_RestDays": "Opponent Rest Days",
+    "Away_RestDays": "Rest Days",
+    "Home_Points_5": "Opponent Recent Form",
+    "Away_Points_5": "Recent Form (Points)",
+    "Home_Goals_5": "Opponent Goals (5-match)",
+    "Away_Goals_5": "Goals Scored (5-match)",
+    "Home_Conceded_5": "Opponent Conceded (5-match)",
+    "Away_Conceded_5": "Goals Conceded (5-match)",
+    "Home_Poss_5": "Opponent Possession (5-match)",
+    "Away_Poss_5": "Possession (5-match)",
+    "Home_Shots_5": "Opponent Shots (5-match)",
+    "Away_Shots_5": "Shots (5-match)",
+    "Home_SoT_5": "Opponent SoT (5-match)",
+    "Away_SoT_5": "Shots on Target (5-match)",
+    "Home_Corners_5": "Opponent Corners (5-match)",
+    "Away_Corners_5": "Corners (5-match)",
+    "Home_H2H_Pts_3": "Opponent H2H Record",
+    "Away_H2H_Pts_3": "H2H Record",
+    "Home_YellowCards_5": "Opponent Discipline",
+    "Away_YellowCards_5": "Discipline (Yellow Cards)",
+    "Home_Saves_5": "Opponent GK Saves",
+    "Away_Saves_5": "Goalkeeper Saves",
+    # OPTIMIZABLE_LABELS are Home_* features — when away they're opponent's
+    "Home_Poss_5": "Opponent Possession",
+    "Home_Shots_5": "Opponent Shots",
+    "Home_SoT_5": "Opponent SoT",
+    "Home_Corners_5": "Opponent Corners",
+    "Home_Goals_5": "Opponent Goals",
+    "Home_Conceded_5": "Opponent Conceded",
+}
+
 POSITIVE_WHEN_HIGH = {
     "Computed_Elo_Diff", "Computed_HFA", "Computed_Home_Elo",
     "Home_RestDays", "Home_Points_5", "Home_Goals_5",
@@ -48,21 +86,52 @@ class ExplanationService:
     def __init__(self, model_svc: ModelService):
         self._model = model_svc
 
-    def explain(self, features: pd.DataFrame, probability: float) -> dict:
-        importances = self._model.feature_importances()
-        if not importances:
-            return {"top_drivers": [], "top_risks": [], "narrative": "Feature importances unavailable."}
+    def explain(
+        self,
+        features: pd.DataFrame,
+        probability: float,
+        ucl_is_home: bool = True,
+    ) -> dict:
+        """Explain a fixture from U Cluj's perspective.
 
-        row = features.iloc[0]
+        probability must be P(U Cluj Win) — already converted from P(Home Win).
+        ucl_is_home controls which label set and SHAP sign convention to use.
+        Positive SHAP = increases P(Home Win); when U Cluj is away that's bad for U Cluj.
+        """
+        contributions = self._model.local_contributions(features)
+        label_map = FEATURE_LABELS if ucl_is_home else FEATURE_LABELS_AWAY
+        # sign: +1 when home (positive SHAP → good for U Cluj), -1 when away
+        sign = 1 if ucl_is_home else -1
+
+        if not contributions:
+            importances = self._model.feature_importances()
+            if not importances:
+                return {"top_drivers": [], "top_risks": [], "narrative": "Feature importances unavailable."}
+            total = sum(max(float(v), 0.0) for v in importances.values()) or 1.0
+            items = [
+                {
+                    "feature": feat,
+                    "label": label_map.get(feat, feat),
+                    "importance": round(max(float(imp), 0.0) / total, 4),
+                    "direction": "positive",
+                }
+                for feat, imp in importances.items()
+            ]
+            items.sort(key=lambda x: x["importance"], reverse=True)
+            drivers = items[:5]
+            risks: list[dict] = []
+            narrative = self._build_narrative(drivers, risks, probability)
+            return {"top_drivers": drivers, "top_risks": risks, "narrative": narrative}
+
+        total_abs = sum(abs(float(v)) for v in contributions.values()) or 1.0
         items = []
-        for feat, imp in importances.items():
-            val = row.get(feat, 0)
-            is_positive = self._is_positive_driver(feat, val)
+        for feat, shap in contributions.items():
+            ucl_shap = sign * float(shap)  # positive = benefits U Cluj
             items.append({
                 "feature": feat,
-                "label": FEATURE_LABELS.get(feat, feat),
-                "importance": round(imp, 4),
-                "direction": "positive" if is_positive else "negative",
+                "label": label_map.get(feat, feat),
+                "importance": round(abs(float(shap)) / total_abs, 4),
+                "direction": "positive" if ucl_shap >= 0.0 else "negative",
             })
 
         items.sort(key=lambda x: x["importance"], reverse=True)
@@ -71,6 +140,15 @@ class ExplanationService:
         narrative = self._build_narrative(drivers, risks, probability)
 
         return {"top_drivers": drivers, "top_risks": risks, "narrative": narrative}
+
+    def build_narrative(
+        self,
+        drivers: list[dict],
+        risks: list[dict],
+        probability: float,
+    ) -> str:
+        """Public narrative builder for already-oriented drivers/risks."""
+        return self._build_narrative(drivers, risks, probability)
 
     def _is_positive_driver(self, feature: str, value: float) -> bool:
         if feature in POSITIVE_WHEN_HIGH:
