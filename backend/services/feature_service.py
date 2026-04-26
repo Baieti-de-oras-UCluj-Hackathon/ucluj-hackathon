@@ -5,6 +5,29 @@ import numpy as np
 
 from ml.feature_config import BASE_FEATURES, OPTIONAL_FEATURES
 
+# Sportradar full names → All_Data.csv canonical names
+_SR_TO_CSV: dict[str, str] = {
+    "FC Universitatea Cluj": "U Cluj",
+    "Universitatea Cluj": "U Cluj",
+    "FC CFR 1907 Cluj": "CFR Cluj",
+    "Fotbal Club FCSB": "FCSB",
+    "Rapid Bucuresti 1923": "Rapid Bucuresti",
+    "FC Dinamo Bucuresti 1948": "Dinamo Bucuresti",
+    "FC Unirea 2004 Slobozia": "Unirea Slobozia",
+    "AFK Csikszereda Miercurea Ciuc": "Csikszereda M. Ciuc",
+    "ACS Champions FC Arges": "FC Arges",
+    "CS Universitatea Craiova": "Univ. Craiova",
+    "FC Uta Arad": "UTA Arad",
+    "AFC Hermannstadt": "FC Hermannstadt",
+    "FC Petrolul Ploiesti": "Petrolul Ploiesti",
+    "FC Farul Constanta": "Farul Constanta",
+    "ASC Otelul Galati": "Otelul Galati",
+}
+
+
+def _normalize_team(name: str) -> str:
+    return _SR_TO_CSV.get(name, name)
+
 
 class FeatureService:
     """Builds feature vectors for a fixture from the historical dataset."""
@@ -24,6 +47,8 @@ class FeatureService:
         rolling/Elo/H2H stats into a single-row DataFrame aligned to
         feature_cols.
         """
+        home_team = _normalize_team(home_team)
+        away_team = _normalize_team(away_team)
         home_row = self._latest_home_stats(home_team)
         away_row = self._latest_away_stats(away_team)
 

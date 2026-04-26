@@ -191,13 +191,19 @@ class XIPredictor:
         adj = opponent_adjustments or {}
         pool = df_players.copy()
 
-        # 1. Scoring
+        # 1. Scoring — always compute composite for display/fallback
+        pool["composite_score"] = pool.apply(self._composite_score, axis=1)
+
         if self.is_supervised:
-            # Predict using model
-            pool["predicted_score"] = self.model.predict(pool[self.feature_cols])
+            # Use predict_proba if available (gives 0-1 probability of being a starter)
+            # so ranking is meaningful. Fall back to binary predict otherwise.
+            try:
+                pool["predicted_score"] = self.model.predict_proba(pool[self.feature_cols])[:, 1]
+            except Exception:
+                pool["predicted_score"] = self.model.predict(pool[self.feature_cols])
         else:
             # Fallback to composite scoring
-            pool["predicted_score"] = pool.apply(self._composite_score, axis=1)
+            pool["predicted_score"] = pool["composite_score"].copy()
 
         # 2. Apply adjustments
         # (e.g., if opponent is strong, boost defensive importance)

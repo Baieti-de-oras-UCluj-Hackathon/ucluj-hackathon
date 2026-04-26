@@ -5,7 +5,7 @@ import '../../../core/theme/color_tokens.dart';
 import '../../../core/theme/spacing_tokens.dart';
 import '../../../core/theme/typography_tokens.dart';
 import '../../../data/models/week_fixture.dart';
-import '../../../data/models/match_preview.dart';
+import '../../../data/models/match_preview.dart' show MatchPreviewResponse;
 import '../../../data/repositories/xi_repository.dart';
 import '../../team/presentation/recommended_xi_fifa_panel.dart';
 
@@ -333,7 +333,6 @@ class _MatchStatsSheetState extends State<MatchStatsSheet> {
     }
     if (_preview == null) return const SizedBox.shrink();
 
-    final p = _preview!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -341,7 +340,6 @@ class _MatchStatsSheetState extends State<MatchStatsSheet> {
           children: [
             _sectionLabel('XI RECOMANDAT'),
             const Spacer(),
-            // Formation picker
             DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: _formation,
@@ -364,121 +362,13 @@ class _MatchStatsSheetState extends State<MatchStatsSheet> {
           ],
         ),
         const SizedBox(height: SpacingTokens.sm),
-
-        // Team stats bar
-        _buildStatsBar(p.teamStats),
-        const SizedBox(height: SpacingTokens.md),
-
-        // Players
-        for (final group in ['GK', 'DEF', 'MID', 'FWD'])
-          ..._playersOf(p.startingXi, group).map(_buildPlayerCard),
-
-        const SizedBox(height: SpacingTokens.md),
-        _sectionLabel('BANCĂ DE REZERVE'),
-        const SizedBox(height: SpacingTokens.sm),
-        ...p.bench.take(5).map(_buildPlayerCard),
+        RecommendedXiFifaPanel(
+          preview: _preview!,
+          formation: _formation,
+        ),
       ],
     );
   }
-
-  Widget _buildStatsBar(MatchTeamStats s) {
-    return Container(
-      color: ColorTokens.surfaceLow,
-      padding: const EdgeInsets.all(SpacingTokens.sm),
-      child: Row(
-        children: [
-          _statCell('FORMĂ', s.avgRecentForm.toStringAsFixed(1)),
-          _statCell('PERF', s.avgPerformanceScore.toStringAsFixed(1)),
-          _statCell('PAS%', '${s.avgPassAccuracy.toStringAsFixed(0)}%'),
-          _statCell('DUEL%', '${s.avgDuelWinRate.toStringAsFixed(0)}%'),
-        ],
-      ),
-    );
-  }
-
-  Widget _statCell(String label, String value) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(value, style: TypographyTokens.headline.copyWith(fontSize: 15)),
-          Text(label,
-              style: TypographyTokens.body
-                  .copyWith(color: ColorTokens.textMuted, fontSize: 9),
-              textAlign: TextAlign.center),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlayerCard(MatchPreviewPlayer p) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 1),
-      color: ColorTokens.surfaceLow,
-      padding: const EdgeInsets.symmetric(
-          horizontal: SpacingTokens.md, vertical: SpacingTokens.sm),
-      child: Row(
-        children: [
-          // Position badge
-          Container(
-            width: 32,
-            color: _posColor(p.roleGroup).withValues(alpha: 0.15),
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: Center(
-              child: Text(p.roleGroup,
-                  style: TypographyTokens.sectionLabel
-                      .copyWith(color: _posColor(p.roleGroup), fontSize: 8)),
-            ),
-          ),
-          const SizedBox(width: SpacingTokens.sm),
-          // Name + role
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(p.shortName.toUpperCase(),
-                    style: TypographyTokens.body
-                        .copyWith(fontWeight: FontWeight.w700, fontSize: 12)),
-                Text(p.role,
-                    style: TypographyTokens.body
-                        .copyWith(color: ColorTokens.textMuted, fontSize: 10)),
-              ],
-            ),
-          ),
-          // Rating + key stat
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Container(
-                color: ColorTokens.accent.withValues(alpha: 0.15),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: SpacingTokens.xs, vertical: 1),
-                child: Text(
-                  (p.predictedScore * 100).toStringAsFixed(0),
-                  style: TypographyTokens.headline
-                      .copyWith(color: ColorTokens.accent, fontSize: 16),
-                ),
-              ),
-              Text('${p.keyStatLabel} ${p.keyStatValue.toStringAsFixed(2)}',
-                  style: TypographyTokens.body
-                      .copyWith(color: ColorTokens.textMuted, fontSize: 9)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color _posColor(String group) {
-    switch (group) {
-      case 'GK': return const Color(0xFFFFB74D);
-      case 'DEF': return const Color(0xFF42A5F5);
-      case 'MID': return const Color(0xFF66BB6A);
-      default: return ColorTokens.negative;
-    }
-  }
-
-  List<MatchPreviewPlayer> _playersOf(List<MatchPreviewPlayer> list, String group) =>
-      list.where((p) => p.roleGroup == group).toList();
 
   Widget _sectionLabel(String text) => Row(
         children: [

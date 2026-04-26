@@ -4,6 +4,7 @@ class MatchPreviewPlayer {
   final String role;
   final String roleGroup;
   final double predictedScore;
+  final double compositeScore;
   final double performanceScore;
   final double recentFormScore;
   final int totalMinutes;
@@ -15,6 +16,7 @@ class MatchPreviewPlayer {
   final double per90KeyPasses;
   final double per90Interceptions;
   final double per90GkSaves;
+  final double per90GkCleanSheets;
 
   MatchPreviewPlayer({
     required this.playerId,
@@ -22,6 +24,7 @@ class MatchPreviewPlayer {
     required this.role,
     required this.roleGroup,
     required this.predictedScore,
+    required this.compositeScore,
     required this.performanceScore,
     required this.recentFormScore,
     required this.totalMinutes,
@@ -33,6 +36,7 @@ class MatchPreviewPlayer {
     required this.per90KeyPasses,
     required this.per90Interceptions,
     required this.per90GkSaves,
+    required this.per90GkCleanSheets,
   });
 
   factory MatchPreviewPlayer.fromJson(Map<String, dynamic> j) =>
@@ -42,6 +46,7 @@ class MatchPreviewPlayer {
         role: j['role'] as String? ?? '',
         roleGroup: j['role_group'] as String? ?? '',
         predictedScore: (j['predicted_score'] as num?)?.toDouble() ?? 0,
+        compositeScore: (j['composite_score'] as num?)?.toDouble() ?? 0,
         performanceScore: (j['performance_score'] as num?)?.toDouble() ?? 0,
         recentFormScore: (j['recent_form_score'] as num?)?.toDouble() ?? 0,
         totalMinutes: (j['total_minutes'] as num?)?.toInt() ?? 0,
@@ -53,6 +58,7 @@ class MatchPreviewPlayer {
         per90KeyPasses: (j['per90_keyPasses'] as num?)?.toDouble() ?? 0,
         per90Interceptions: (j['per90_interceptions'] as num?)?.toDouble() ?? 0,
         per90GkSaves: (j['per90_gkSaves'] as num?)?.toDouble() ?? 0,
+        per90GkCleanSheets: (j['per90_gkCleanSheets'] as num?)?.toDouble() ?? 0,
       );
 
   // Returns the most relevant per-90 stat label + value for this player's position

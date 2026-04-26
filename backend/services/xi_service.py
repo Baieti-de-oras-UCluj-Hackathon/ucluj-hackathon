@@ -114,12 +114,53 @@ class XiService:
 
         _PLAYER_COLS = [
             "playerId", "shortName", "role", "role_group",
-            "predicted_score", "performance_score", "recent_form_score",
+            "predicted_score", "composite_score",
+            "performance_score", "recent_form_score",
             "total_minutes", "matches_played",
             "pass_accuracy", "duel_win_rate",
             "per90_goals", "per90_assists", "per90_shots",
             "per90_keyPasses", "per90_interceptions", "per90_gkSaves",
+            "per90_gkCleanSheets",
         ]
+
+        # Normalize raw scores to 0-100 using league-wide position-group percentiles.
+        # Using all players in the dataset (all teams) as the reference population,
+        # split by role_group, with 5th/95th percentile bounds to avoid outlier skew.
+        _RAW_COLS = [
+            "performance_score", "recent_form_score",
+            "per90_goals", "per90_assists", "per90_keyPasses",
+            "per90_interceptions", "per90_gkSaves", "per90_gkCleanSheets", "per90_shots",
+            "pass_accuracy", "duel_win_rate",
+        ]
+
+        df_all = self._get_feature_df()
+
+        def _league_normalize(target: pd.DataFrame) -> pd.DataFrame:
+            target = target.copy()
+            for col in _RAW_COLS:
+                if col not in df_all.columns or col not in target.columns:
+                    continue
+                for grp in ["GK", "DEF", "MID", "FWD"]:
+                    mask_all = df_all["role_group"] == grp
+                    mask_tgt = target["role_group"] == grp
+                    if not mask_tgt.any():
+                        continue
+                    group_vals = df_all.loc[mask_all, col].dropna()
+                    if len(group_vals) < 3:
+                        continue
+                    p5  = float(group_vals.quantile(0.05))
+                    p95 = float(group_vals.quantile(0.95))
+                    rng = p95 - p5
+                    if rng == 0:
+                        target.loc[mask_tgt, col] = 50.0
+                    else:
+                        target.loc[mask_tgt, col] = (
+                            (target.loc[mask_tgt, col] - p5) / rng * 100
+                        ).clip(0, 100).round(1)
+            return target
+
+        xi_norm    = _league_normalize(result["xi"])
+        bench_norm = _league_normalize(result["bench"])
 
         def _fmt(frame: pd.DataFrame) -> List[Dict]:
             if frame is None or frame.empty:
@@ -216,8 +257,8 @@ class XiService:
             "formation": formation,
             "opponent_name": opponent_name,
             "opponent_team_id": opp_id,
-            "starting_xi": _fmt(result["xi"]),
-            "bench": _fmt(result["bench"]),
+            "starting_xi": _fmt(xi_norm),
+            "bench": _fmt(bench_norm),
             "team_stats": team_stats,
             "opponent_stats": opponent_stats,
             "head_to_head": h2h,

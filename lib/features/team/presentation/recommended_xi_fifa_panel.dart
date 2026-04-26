@@ -37,7 +37,7 @@ class RecommendedXiFifaPanel extends StatefulWidget {
   final double Function(MatchPreviewPlayer p) ratingForDisplay;
 
   static double _defaultRatingForDisplay(MatchPreviewPlayer p) =>
-      p.predictedScore;
+      (p.compositeScore * 100).clamp(0, 99).toDouble();
 
   @override
   State<RecommendedXiFifaPanel> createState() => _RecommendedXiFifaPanelState();
@@ -228,8 +228,23 @@ class _FifaAttr {
   final double value; // 0–100
 }
 
+// All per90_* and performance/form scores arrive pre-normalized to 0-100
+// by the backend (league-wide, within position group, 5th-95th percentile).
+// pass_accuracy and duel_win_rate are raw percentages (already 0-100).
 List<_FifaAttr> _fifaAttrs(MatchPreviewPlayer p) {
-  final pace      = (p.recentFormScore / 60 * 100).clamp(0, 100).toDouble();
+  // GK gets keeper-specific attribute labels
+  if (p.roleGroup == 'GK') {
+    return [
+      _FifaAttr('Speed',       p.recentFormScore.clamp(0, 100).toDouble()),
+      _FifaAttr('Reflexes',    p.per90GkSaves.clamp(0, 100).toDouble()),
+      _FifaAttr('Kicking',     p.passAccuracy.clamp(0, 100).toDouble()),
+      _FifaAttr('Positioning', p.performanceScore.clamp(0, 100).toDouble()),
+      _FifaAttr('Handling',    p.duelWinRate.clamp(0, 100).toDouble()),
+      _FifaAttr('Diving',      p.per90GkCleanSheets.clamp(0, 100).toDouble()),
+    ];
+  }
+
+  final pace      = p.recentFormScore.clamp(0, 100).toDouble();
   final physical  = p.performanceScore.clamp(0, 100).toDouble();
   final passing   = p.passAccuracy.clamp(0, 100).toDouble();
   final defending = p.duelWinRate.clamp(0, 100).toDouble();
@@ -237,18 +252,15 @@ List<_FifaAttr> _fifaAttrs(MatchPreviewPlayer p) {
   final double dribbling;
 
   switch (p.roleGroup) {
-    case 'GK':
-      shooting   = (p.per90GkSaves / 6.0 * 100).clamp(0, 100).toDouble();
-      dribbling  = (p.per90KeyPasses / 2.0 * 100).clamp(0, 100).toDouble();
     case 'DEF':
-      shooting   = (p.per90Interceptions / 8.0 * 100).clamp(0, 100).toDouble();
-      dribbling  = (p.per90Assists / 0.3 * 100).clamp(0, 100).toDouble();
+      shooting  = p.per90Interceptions.clamp(0, 100).toDouble();
+      dribbling = p.per90Assists.clamp(0, 100).toDouble();
     case 'MID':
-      shooting   = (p.per90KeyPasses / 4.0 * 100).clamp(0, 100).toDouble();
-      dribbling  = (p.per90Assists / 0.5 * 100).clamp(0, 100).toDouble();
+      shooting  = p.per90KeyPasses.clamp(0, 100).toDouble();
+      dribbling = p.per90Assists.clamp(0, 100).toDouble();
     default: // FWD
-      shooting   = (p.per90Goals / 1.2 * 100).clamp(0, 100).toDouble();
-      dribbling  = (p.per90KeyPasses / 3.0 * 100).clamp(0, 100).toDouble();
+      shooting  = p.per90Goals.clamp(0, 100).toDouble();
+      dribbling = p.per90KeyPasses.clamp(0, 100).toDouble();
   }
 
   return [
