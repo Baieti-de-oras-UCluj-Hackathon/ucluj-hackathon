@@ -22,18 +22,6 @@ Color recommendedXiRoleColor(String g) {
   }
 }
 
-double _keyStatMax(MatchPreviewPlayer p) {
-  switch (p.roleGroup) {
-    case 'GK':
-      return 6;
-    case 'DEF':
-      return 8;
-    case 'FWD':
-      return 1.2;
-    default:
-      return 4;
-  }
-}
 
 /// FIFA-style pitch + bench + player detail (dashboard sheet & match preview).
 class RecommendedXiFifaPanel extends StatefulWidget {
@@ -231,6 +219,57 @@ class _RecommendedXiFifaPanelState extends State<RecommendedXiFifaPanel> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// FIFA-style attribute definition
+// ---------------------------------------------------------------------------
+class _FifaAttr {
+  const _FifaAttr(this.label, this.value);
+  final String label;
+  final double value; // 0–100
+}
+
+List<_FifaAttr> _fifaAttrs(MatchPreviewPlayer p) {
+  final pace      = (p.recentFormScore / 60 * 100).clamp(0, 100).toDouble();
+  final physical  = p.performanceScore.clamp(0, 100).toDouble();
+  final passing   = p.passAccuracy.clamp(0, 100).toDouble();
+  final defending = p.duelWinRate.clamp(0, 100).toDouble();
+  final double shooting;
+  final double dribbling;
+
+  switch (p.roleGroup) {
+    case 'GK':
+      shooting   = (p.per90GkSaves / 6.0 * 100).clamp(0, 100).toDouble();
+      dribbling  = (p.per90KeyPasses / 2.0 * 100).clamp(0, 100).toDouble();
+    case 'DEF':
+      shooting   = (p.per90Interceptions / 8.0 * 100).clamp(0, 100).toDouble();
+      dribbling  = (p.per90Assists / 0.3 * 100).clamp(0, 100).toDouble();
+    case 'MID':
+      shooting   = (p.per90KeyPasses / 4.0 * 100).clamp(0, 100).toDouble();
+      dribbling  = (p.per90Assists / 0.5 * 100).clamp(0, 100).toDouble();
+    default: // FWD
+      shooting   = (p.per90Goals / 1.2 * 100).clamp(0, 100).toDouble();
+      dribbling  = (p.per90KeyPasses / 3.0 * 100).clamp(0, 100).toDouble();
+  }
+
+  return [
+    _FifaAttr('Pace',      pace),
+    _FifaAttr('Shooting',  shooting),
+    _FifaAttr('Passing',   passing),
+    _FifaAttr('Physical',  physical),
+    _FifaAttr('Defending', defending),
+    _FifaAttr('Dribbling', dribbling),
+  ];
+}
+
+Color _attrColor(double v) {
+  if (v >= 70) return ColorTokens.positive;
+  if (v >= 45) return ColorTokens.accent;
+  return ColorTokens.negative;
+}
+
+// ---------------------------------------------------------------------------
+// Player detail panel (FIFA style)
+// ---------------------------------------------------------------------------
 class _PlayerDetailColumn extends StatelessWidget {
   const _PlayerDetailColumn({
     required this.player,
@@ -245,121 +284,144 @@ class _PlayerDetailColumn extends StatelessWidget {
     final p = player;
     if (p == null) {
       return Center(
-        child: Text(
-          'Select a player',
-          style: TypographyTokens.body.copyWith(color: ColorTokens.textMuted),
-        ),
+        child: Text('Select a player',
+            style: TypographyTokens.body.copyWith(color: ColorTokens.textMuted)),
       );
     }
-    final hero = ratingForDisplay(p);
+    final rating = ratingForDisplay(p).clamp(0, 100).toInt();
+    final attrs  = _fifaAttrs(p);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(SpacingTokens.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                color: ColorTokens.surfaceHigh,
-                alignment: Alignment.center,
-                child: Text(
-                  p.roleGroup,
-                  style: TypographyTokens.headline.copyWith(
-                    fontSize: 22,
-                    color: recommendedXiRoleColor(p.roleGroup),
+          // ── Top row: card + radar ──────────────────────────────────────
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Left: position card
+                Container(
+                  width: 90,
+                  color: ColorTokens.surfaceHigh,
+                  padding: const EdgeInsets.symmetric(vertical: SpacingTokens.md),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        p.roleGroup,
+                        style: TypographyTokens.sectionLabel.copyWith(
+                          fontSize: 10,
+                          color: recommendedXiRoleColor(p.roleGroup),
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                      Text(
+                        '$rating',
+                        style: TypographyTokens.displayHero.copyWith(
+                          fontSize: 52,
+                          height: 0.95,
+                          color: ColorTokens.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        p.shortName.toUpperCase(),
+                        maxLines: 2,
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                        style: TypographyTokens.body.copyWith(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                      Text(
+                        p.role.toUpperCase(),
+                        style: TypographyTokens.body.copyWith(
+                          fontSize: 8,
+                          color: ColorTokens.textMuted,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(width: SpacingTokens.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      hero.toStringAsFixed(0),
-                      style: TypographyTokens.displayHero.copyWith(
-                        fontSize: 44,
-                        height: 0.9,
-                        color: ColorTokens.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      p.shortName.toUpperCase(),
-                      style: TypographyTokens.headline.copyWith(fontSize: 14),
-                    ),
-                    Text(
-                      p.role.toUpperCase(),
-                      style: TypographyTokens.body
-                          .copyWith(color: ColorTokens.textMuted, fontSize: 10),
-                    ),
-                  ],
+                const SizedBox(width: SpacingTokens.sm),
+                // Right: radar
+                Expanded(
+                  child: SizedBox(
+                    height: 170,
+                    child: FifaPlayerRadar(player: p),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+
           const SizedBox(height: SpacingTokens.lg),
-          Text('PLAYER PROFILE',
-              style: TypographyTokens.sectionLabel.copyWith(fontSize: 9)),
-          const SizedBox(height: SpacingTokens.sm),
-          SizedBox(
-            height: 200,
-            child: FifaPlayerRadar(player: p),
+
+          // ── Attribute comparison bars (FIFA style) ─────────────────────
+          Text(
+            'PLAYER INFO COMPARISON',
+            style: TypographyTokens.sectionLabel.copyWith(
+              fontSize: 9,
+              color: ColorTokens.accent,
+              letterSpacing: 1.5,
+            ),
           ),
-          const SizedBox(height: SpacingTokens.lg),
-          Text('KEY METRICS',
-              style: TypographyTokens.sectionLabel.copyWith(fontSize: 9)),
           const SizedBox(height: SpacingTokens.sm),
-          _metricBar('Form', p.recentFormScore, 60),
-          _metricBar('Performance', p.performanceScore, 100),
-          _metricBar('Pass %', p.passAccuracy, 100),
-          _metricBar('Duel %', p.duelWinRate, 100),
-          _metricBar(p.keyStatLabel, p.keyStatValue, _keyStatMax(p)),
-          _metricBar('Minutes', p.totalMinutes.toDouble(), 2000),
+          for (final a in attrs) _fifaAttrRow(a),
         ],
       ),
     );
   }
 
-  Widget _metricBar(String label, double value, double maxV) {
-    final t = (value / maxV).clamp(0.0, 1.0);
+  Widget _fifaAttrRow(_FifaAttr a) {
+    final v    = a.value.clamp(0, 100).toDouble();
+    final t    = v / 100;
+    final col  = _attrColor(v);
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: SpacingTokens.sm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.only(bottom: 9),
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(label,
-                  style: TypographyTokens.body
-                      .copyWith(fontSize: 11, color: ColorTokens.textMuted)),
-              Text(
-                value.toStringAsFixed(2),
-                style: TypographyTokens.body.copyWith(fontSize: 11),
+          // Value
+          SizedBox(
+            width: 28,
+            child: Text(
+              v.toStringAsFixed(0),
+              style: TypographyTokens.body.copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: col,
               ),
-            ],
+              textAlign: TextAlign.right,
+            ),
           ),
-          const SizedBox(height: 4),
-          Container(
-            height: 6,
-            width: double.infinity,
-            color: ColorTokens.surfaceHigh,
-            child: Align(
+          const SizedBox(width: 6),
+          // Bar
+          Expanded(
+            child: Container(
+              height: 5,
+              color: ColorTokens.surfaceHigh,
               alignment: Alignment.centerLeft,
               child: FractionallySizedBox(
                 widthFactor: t,
                 alignment: Alignment.centerLeft,
-                child: Container(
-                  height: 6,
-                  color: t > 0.66
-                      ? ColorTokens.positive
-                      : t > 0.33
-                          ? ColorTokens.accent
-                          : ColorTokens.negative,
-                ),
+                child: Container(height: 5, color: col),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Label
+          SizedBox(
+            width: 62,
+            child: Text(
+              a.label,
+              style: TypographyTokens.body.copyWith(
+                fontSize: 11,
+                color: ColorTokens.textMuted,
               ),
             ),
           ),
@@ -687,31 +749,13 @@ class FifaPlayerRadar extends StatelessWidget {
 
   final MatchPreviewPlayer player;
 
-  List<double> _values() {
-    return [
-      (player.recentFormScore / 60).clamp(0.0, 1.0),
-      (player.performanceScore / 100).clamp(0.0, 1.0),
-      (player.passAccuracy / 100).clamp(0.0, 1.0),
-      (player.duelWinRate / 100).clamp(0.0, 1.0),
-      (player.keyStatValue /
-              (player.roleGroup == 'GK'
-                  ? 6.0
-                  : player.roleGroup == 'DEF'
-                      ? 8.0
-                      : player.roleGroup == 'FWD'
-                          ? 1.2
-                          : 4.0))
-          .clamp(0.0, 1.0),
-      (player.totalMinutes / 2000).clamp(0.0, 1.0),
-    ];
-  }
-
-  static const _labels = ['FORM', 'PERF', 'PAS', 'DUEL', 'KEY', 'MIN'];
-
   @override
   Widget build(BuildContext context) {
+    final attrs = _fifaAttrs(player);
+    final values = attrs.map((a) => (a.value / 100).clamp(0.0, 1.0)).toList();
+    final labels = attrs.map((a) => a.label.toUpperCase()).toList();
     return CustomPaint(
-      painter: FifaRadarPainter(values: _values(), labels: _labels),
+      painter: FifaRadarPainter(values: values, labels: labels),
       child: const SizedBox.expand(),
     );
   }

@@ -6,6 +6,34 @@ import joblib
 import pandas as pd
 from catboost import CatBoostClassifier, CatBoostRegressor
 
+# Canonical tactical strings mapped to valid role counts (always 11 with GK).
+FORMATIONS: Dict[str, Dict[str, int]] = {
+    "4-4-2": {"GK": 1, "DEF": 4, "MID": 4, "FWD": 2},
+    "4-3-3": {"GK": 1, "DEF": 4, "MID": 3, "FWD": 3},
+    "4-2-3-1": {"GK": 1, "DEF": 4, "MID": 5, "FWD": 1},
+    "4-5-1": {"GK": 1, "DEF": 4, "MID": 5, "FWD": 1},
+    "4-1-4-1": {"GK": 1, "DEF": 4, "MID": 5, "FWD": 1},
+    "4-3-2-1": {"GK": 1, "DEF": 4, "MID": 5, "FWD": 1},
+    "4-2-2-2": {"GK": 1, "DEF": 4, "MID": 4, "FWD": 2},
+    "3-1-4-2": {"GK": 1, "DEF": 3, "MID": 5, "FWD": 2},
+    "3-5-2": {"GK": 1, "DEF": 3, "MID": 5, "FWD": 2},
+    "3-4-3": {"GK": 1, "DEF": 3, "MID": 4, "FWD": 3},
+    "3-6-1": {"GK": 1, "DEF": 3, "MID": 6, "FWD": 1},
+    "5-3-2": {"GK": 1, "DEF": 5, "MID": 3, "FWD": 2},
+    "5-4-1": {"GK": 1, "DEF": 5, "MID": 4, "FWD": 1},
+}
+
+
+def normalize_formation_key(formation: str) -> str:
+    key = (formation or "").strip()
+    return key if key in FORMATIONS else "4-3-3"
+
+
+def formation_role_counts(formation: str) -> Dict[str, int]:
+    key = normalize_formation_key(formation)
+    f = FORMATIONS[key]
+    return {"GK": 1, "DEF": f["DEF"], "MID": f["MID"], "FWD": f["FWD"]}
+
 
 class XIPredictor:
     """
@@ -176,15 +204,9 @@ class XIPredictor:
         def_adj = adj.get("def_weight", 1.0)
         pool.loc[pool["role_group"] == "DEF", "predicted_score"] *= def_adj
 
-        # 3. Formations logic
-        # format: "4-3-3" -> [GK:1, DEF:4, MID:3, FWD:3]
-        parts = formation.split("-")
-        slots = {
-            "GK": 1,
-            "DEF": int(parts[0]),
-            "MID": int(parts[1]),
-            "FWD": int(parts[2]),
-        }
+        # 3. Formation logic (supports multi-segment patterns like 4-2-3-1).
+        resolved_formation = normalize_formation_key(formation)
+        slots = formation_role_counts(resolved_formation)
 
         xi_rows = []
         used_ids = set()
@@ -207,7 +229,7 @@ class XIPredictor:
         )
 
         return {
-            "formation": formation,
+            "formation": resolved_formation,
             "formation_slots": slots,
             "xi": xi_df,
             "bench": bench_df,
@@ -227,3 +249,50 @@ class XIPredictor:
             ).sort_values("importance", ascending=False)
             return fi
         return None
+
+
+class StartingXIPredictor(XIPredictor):
+    """Backward-compatible wrapper used by pipeline/service code."""
+
+    def __init__(self, model_type: str = "auto", model_path: Optional[str] = None):
+        super().__init__(model_path=model_path)
+        self.model_type = model_type
+
+    def fit(
+        self,
+        df: pd.DataFrame,
+        labels: Optional[pd.Series] = None,
+        verbose: bool = True,
+    ):
+        if labels is not None and self.model is None:
+            try:
+                model = CatBoostClassifier(
+                    iterations=300,
+                    learning_rate=0.05,
+                    depth=6,
+                    verbose=False,
+                    random_seed=42,
+                )
+                model.fit(df[self.feature_cols], labels)
+                self.model = model
+                self.is_supervised = True
+            except Exception:
+                self.model = None
+                self.is_supervised = False
+        return self
+
+    def predict_xi(
+        self,
+        df: pd.DataFrame,
+        formation: str = "4-3-3",
+        your_team_id: Optional[int] = None,
+        opponent_df: Optional[pd.DataFrame] = None,
+    ) -> Dict[str, Any]:
+        adjustments = {}
+        if opponent_df is not None and not opponent_df.empty:
+            adjustments = self.compute_opponent_adjustments(opponent_df)
+        return self.predict_optimal_xi(
+            df_players=df,
+            formation=formation,
+            opponent_adjustments=adjustments,
+        )

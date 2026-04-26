@@ -28,16 +28,14 @@ class _TeamStanding {
   final int pos, played, wins, draws, losses, gf, ga, gd, points;
   final String name;
 
-  String get shortName => _nameToShort[name] ?? name;
-  String get logoAsset => _nameToLogo[name] ?? '';
+  String get shortName => _nameToShort[name] ?? _srNameToShort[name] ?? name;
+  String get logoAsset => _nameToLogo[name] ?? _srNameToLogo[name] ?? '';
 
   bool isTrackedBy(String? trackedTeam) {
     if (trackedTeam == null) return false;
     final t = trackedTeam.toLowerCase();
-    return name.toLowerCase() == t ||
-        name.toLowerCase().contains(t) ||
-        t.contains(name.toLowerCase()) ||
-        shortName.toLowerCase() == t;
+    final n = name.toLowerCase();
+    return n == t || n.contains(t) || t.contains(n) || shortName.toLowerCase() == t;
   }
 
   factory _TeamStanding.fromJson(Map<String, dynamic> j, {int fallbackRank = 0}) {
@@ -76,6 +74,26 @@ const _nameToShort = <String, String>{
   'FC Botosani': 'FC Botoșani',
 };
 
+// Sportradar full name → short display name
+const _srNameToShort = <String, String>{
+  'FC Universitatea Cluj': 'U Cluj',
+  'CS Universitatea Craiova': 'U Craiova',
+  'FC CFR 1907 Cluj': 'CFR Cluj',
+  'Fotbal Club FCSB': 'FCSB',
+  'Rapid Bucuresti 1923': 'Rapid',
+  'FC Dinamo Bucuresti 1948': 'Dinamo',
+  'FC Farul Constanta': 'Farul',
+  'AFC Hermannstadt': 'Hermannstadt',
+  'FC Uta Arad': 'UTA Arad',
+  'FC Petrolul Ploiesti': 'Petrolul',
+  'ASC Otelul Galati': 'Oțelul',
+  'AFK Csikszereda Miercurea Ciuc': 'Csíkszereda',
+  'FC Unirea 2004 Slobozia': 'Unirea',
+  'ACS Champions FC Arges': 'FC Argeș',
+  'FC Botosani': 'FC Botoșani',
+  'Sepsi OSK Sfantu Gheorghe': 'Sepsi',
+};
+
 // CSV team name → local logo asset
 const _nameToLogo = <String, String>{
   'U Cluj': 'assets/teams/universitatea_cluj.png',
@@ -93,6 +111,25 @@ const _nameToLogo = <String, String>{
   'Metaloglobus Bucuresti': 'assets/teams/metaloglobus.png',
   'FC Arges': 'assets/teams/arges_pitesti.png',
   'Univ. Craiova': 'assets/teams/universitatea_craiova.png',
+  'FC Botosani': 'assets/teams/botosani.png',
+};
+
+// Sportradar full name → local logo asset
+const _srNameToLogo = <String, String>{
+  'FC Universitatea Cluj': 'assets/teams/universitatea_cluj.png',
+  'CS Universitatea Craiova': 'assets/teams/universitatea_craiova.png',
+  'FC CFR 1907 Cluj': 'assets/teams/cfr_cluj.png',
+  'Fotbal Club FCSB': 'assets/teams/fcsb.png',
+  'Rapid Bucuresti 1923': 'assets/teams/rapid_bucuresti.png',
+  'FC Dinamo Bucuresti 1948': 'assets/teams/dinamo_bucuresti.png',
+  'FC Farul Constanta': 'assets/teams/farul_constanta.png',
+  'AFC Hermannstadt': 'assets/teams/hermannstadt.png',
+  'FC Uta Arad': 'assets/teams/uta_arad.png',
+  'FC Petrolul Ploiesti': 'assets/teams/petrolul_ploiesti.png',
+  'ASC Otelul Galati': 'assets/teams/otelul_galati.png',
+  'AFK Csikszereda Miercurea Ciuc': 'assets/teams/csikszereda.png',
+  'FC Unirea 2004 Slobozia': 'assets/teams/unirea_slobozia.png',
+  'ACS Champions FC Arges': 'assets/teams/arges_pitesti.png',
   'FC Botosani': 'assets/teams/botosani.png',
 };
 
@@ -118,34 +155,49 @@ class StandingsScreen extends StatefulWidget {
   State<StandingsScreen> createState() => _StandingsScreenState();
 }
 
-class _StandingsScreenState extends State<StandingsScreen> {
+class _StandingsScreenState extends State<StandingsScreen>
+    with SingleTickerProviderStateMixin {
   List<_TeamStanding> _regular = [];
+  List<_TeamStanding> _championship = [];
+  List<_TeamStanding> _relegation = [];
   bool _loading = true;
   String? _error;
+  late final TabController _tabController;
 
   String? get _team => widget.trackedTeam;
-
   ApiClient get _api => widget.apiClient ?? ApiClient();
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     _loadData();
   }
 
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadData() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() { _loading = true; _error = null; });
     try {
-      final list = await _api.getList('/standings');
-      final standings = list.asMap().entries.map((e) =>
-        _TeamStanding.fromJson(e.value as Map<String, dynamic>, fallbackRank: e.key + 1),
-      ).toList();
+      final raw = await _api.get('/standings');
+      final data = raw as Map<String, dynamic>;
+
+      List<_TeamStanding> _parseList(String key) {
+        final list = data[key] as List<dynamic>? ?? [];
+        return list.asMap().entries.map((e) =>
+          _TeamStanding.fromJson(e.value as Map<String, dynamic>, fallbackRank: e.key + 1),
+        ).toList();
+      }
+
       if (mounted) {
         setState(() {
-          _regular = standings;
+          _regular = _parseList('regular');
+          _championship = _parseList('championship');
+          _relegation = _parseList('relegation');
           _loading = false;
         });
       }
@@ -154,20 +206,20 @@ class _StandingsScreenState extends State<StandingsScreen> {
     }
   }
 
-  _TeamStanding? _findTracked() {
-    if (_regular.isEmpty) return null;
+  _TeamStanding? _findTracked(List<_TeamStanding> list) {
+    if (list.isEmpty) return null;
     final t = _team;
     if (t == null) {
-      // Default: highlight U Cluj
-      for (final team in _regular) {
-        if (team.name == 'U Cluj') return team;
+      for (final team in list) {
+        if (team.name.toLowerCase().contains('cluj') &&
+            !team.name.toLowerCase().contains('cfr')) return team;
       }
-      return _regular.first;
+      return list.first;
     }
-    for (final team in _regular) {
+    for (final team in list) {
       if (team.isTrackedBy(t)) return team;
     }
-    return _regular.first;
+    return null;
   }
 
   @override
@@ -179,100 +231,223 @@ class _StandingsScreenState extends State<StandingsScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: ColorTokens.accent))
           : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(SpacingTokens.xl),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.error_outline, size: 40, color: ColorTokens.negative),
-                        const SizedBox(height: SpacingTokens.md),
-                        Text('Could not load standings',
-                            style: TypographyTokens.headline
-                                .copyWith(color: ColorTokens.negative)),
-                        const SizedBox(height: SpacingTokens.sm),
-                        Text(_error!,
-                            style: TypographyTokens.body
-                                .copyWith(color: ColorTokens.textMuted),
-                            textAlign: TextAlign.center),
-                        const SizedBox(height: SpacingTokens.lg),
-                        TextButton(
-                          onPressed: _loadData,
-                          child: Text('RETRY',
-                              style: TypographyTokens.sectionLabel
-                                  .copyWith(color: ColorTokens.accent)),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : RefreshIndicator(
-                  color: ColorTokens.accent,
-                  backgroundColor: ColorTokens.surfaceLow,
-                  onRefresh: _loadData,
-                  child: ListView(
-                    children: [
-                      const SizedBox(height: SpacingTokens.md),
-                      Text('LEAGUE',
-                          style: TypographyTokens.displayHero
-                              .copyWith(fontSize: 72, height: 0.9)),
-                      Text('STANDINGS',
-                          style: TypographyTokens.displayHero.copyWith(
-                            fontSize: 72,
-                            height: 0.9,
-                            color: ColorTokens.textMuted.withValues(alpha: 0.18),
-                          )),
-                      const SizedBox(height: SpacingTokens.md),
-                      Text('SUPERLIGA ROMANIA  ·  2024/25',
-                          style: TypographyTokens.sectionLabel.copyWith(
-                            color: ColorTokens.accent,
-                            letterSpacing: 2.0,
-                          )),
-                      const SizedBox(height: 28),
-                      _buildRegularSeason(),
-                    ],
-                  ),
-                ),
+              ? _buildError()
+              : _buildContent(),
     );
   }
 
-  Widget _buildRegularSeason() {
-    if (_regular.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(SpacingTokens.xxl),
-        color: ColorTokens.surfaceLow,
-        child: Column(children: [
-          const Icon(Icons.table_chart_outlined, size: 32, color: ColorTokens.textMuted),
-          const SizedBox(height: SpacingTokens.md),
-          Text('No standings data available.',
-              style: TypographyTokens.body.copyWith(color: ColorTokens.textMuted)),
-        ]),
+  Widget _buildError() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(SpacingTokens.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 40, color: ColorTokens.negative),
+            const SizedBox(height: SpacingTokens.md),
+            Text('Could not load standings',
+                style: TypographyTokens.headline.copyWith(color: ColorTokens.negative)),
+            const SizedBox(height: SpacingTokens.sm),
+            Text(_error!,
+                style: TypographyTokens.body.copyWith(color: ColorTokens.textMuted),
+                textAlign: TextAlign.center),
+            const SizedBox(height: SpacingTokens.lg),
+            TextButton(
+              onPressed: _loadData,
+              child: Text('RETRY',
+                  style: TypographyTokens.sectionLabel.copyWith(color: ColorTokens.accent)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    return RefreshIndicator(
+      color: ColorTokens.accent,
+      backgroundColor: ColorTokens.surfaceLow,
+      onRefresh: _loadData,
+      child: NestedScrollView(
+        headerSliverBuilder: (_, __) => [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  SpacingTokens.md, SpacingTokens.md, SpacingTokens.md, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('LEAGUE',
+                      style: TypographyTokens.displayHero
+                          .copyWith(fontSize: 72, height: 0.9)),
+                  Text('STANDINGS',
+                      style: TypographyTokens.displayHero.copyWith(
+                        fontSize: 72,
+                        height: 0.9,
+                        color: ColorTokens.textMuted.withValues(alpha: 0.18),
+                      )),
+                  const SizedBox(height: SpacingTokens.sm),
+                  Text('SUPERLIGA ROMANIA  ·  2025/26',
+                      style: TypographyTokens.sectionLabel.copyWith(
+                        color: ColorTokens.accent,
+                        letterSpacing: 2.0,
+                      )),
+                  const SizedBox(height: SpacingTokens.lg),
+                ],
+              ),
+            ),
+          ),
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _TabBarDelegate(
+              TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                indicator: BoxDecoration(
+                  color: ColorTokens.accent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                indicatorSize: TabBarIndicatorSize.tab,
+                labelColor: Colors.black,
+                unselectedLabelColor: ColorTokens.textMuted,
+                labelStyle: TypographyTokens.sectionLabel.copyWith(fontSize: 11),
+                unselectedLabelStyle: TypographyTokens.sectionLabel.copyWith(fontSize: 11),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: SpacingTokens.md, vertical: SpacingTokens.sm),
+                tabs: const [
+                  Tab(text: 'PRINCIPAL'),
+                  Tab(text: 'GRUPĂ CAMPIONAT'),
+                  Tab(text: 'GRUPĂ RETROGRADARE'),
+                ],
+              ),
+            ),
+          ),
+        ],
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            _StandingsTabView(
+              rows: _regular,
+              trackedTeam: _team,
+              tracked: _findTracked(_regular),
+            ),
+            _StandingsTabView(
+              rows: _championship,
+              trackedTeam: _team,
+              tracked: _findTracked(_championship),
+              emptyLabel: 'Grupă Campionat nedisponibilă',
+            ),
+            _StandingsTabView(
+              rows: _relegation,
+              trackedTeam: _team,
+              tracked: _findTracked(_relegation),
+              emptyLabel: 'Grupă Retrogradare nedisponibilă',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// TAB CONTENT
+// =============================================================================
+
+class _StandingsTabView extends StatelessWidget {
+  const _StandingsTabView({
+    required this.rows,
+    required this.trackedTeam,
+    this.tracked,
+    this.emptyLabel = 'No standings data available.',
+  });
+
+  final List<_TeamStanding> rows;
+  final String? trackedTeam;
+  final _TeamStanding? tracked;
+  final String emptyLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    if (rows.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(SpacingTokens.xxl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.table_chart_outlined,
+                  size: 32, color: ColorTokens.textMuted),
+              const SizedBox(height: SpacingTokens.md),
+              Text(emptyLabel,
+                  style: TypographyTokens.body.copyWith(color: ColorTokens.textMuted),
+                  textAlign: TextAlign.center),
+            ],
+          ),
+        ),
       );
     }
 
-    final tracked = _findTracked();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return ListView(
+      padding: EdgeInsets.zero,
       children: [
-        if (tracked != null) _HeroClubCard(team: tracked),
-        const SizedBox(height: 28),
-        const _TableHeader(),
-        for (final team in _regular)
-          _StandingsRow(team: team, trackedTeam: _team),
-        if (tracked != null && _regular.isNotEmpty) ...[
+        const SizedBox(height: SpacingTokens.md),
+        if (tracked != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: SpacingTokens.md),
+            child: _HeroClubCard(team: tracked!),
+          ),
+        const SizedBox(height: SpacingTokens.lg),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: SpacingTokens.md),
+          child: _TableHeader(),
+        ),
+        ...rows.map((t) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: SpacingTokens.md),
+          child: _StandingsRow(team: t, trackedTeam: trackedTeam),
+        )),
+        if (tracked != null && rows.isNotEmpty) ...[
           const SizedBox(height: 28),
-          _ContextCard(
-            label: 'POINTS TO LEADER',
-            value: '${_regular.first.points - tracked.points}',
-            note: '${_regular.first.shortName} leads with ${_regular.first.points} pts.',
-            valueColor: tracked.pos == 1 ? ColorTokens.positive : ColorTokens.negative,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: SpacingTokens.md),
+            child: _ContextCard(
+              label: 'POINTS TO LEADER',
+              value: '${rows.first.points - tracked!.points}',
+              note: '${rows.first.shortName} leads with ${rows.first.points} pts.',
+              valueColor: tracked!.pos == 1 ? ColorTokens.positive : ColorTokens.negative,
+            ),
           ),
         ],
         const SizedBox(height: SpacingTokens.xl),
       ],
     );
   }
+}
+
+// =============================================================================
+// PINNED TAB BAR DELEGATE
+// =============================================================================
+
+class _TabBarDelegate extends SliverPersistentHeaderDelegate {
+  const _TabBarDelegate(this.tabBar);
+  final TabBar tabBar;
+
+  @override
+  double get minExtent => tabBar.preferredSize.height + 16;
+  @override
+  double get maxExtent => tabBar.preferredSize.height + 16;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: ColorTokens.surface,
+      child: tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_TabBarDelegate oldDelegate) => tabBar != oldDelegate.tabBar;
 }
 
 // =============================================================================
@@ -385,7 +560,8 @@ class _StandingsRow extends StatelessWidget {
 
   bool get _hl {
     if (trackedTeam != null) return team.isTrackedBy(trackedTeam);
-    return team.name == 'U Cluj';
+    return team.name.toLowerCase().contains('cluj') &&
+        !team.name.toLowerCase().contains('cfr');
   }
 
   @override
@@ -393,9 +569,7 @@ class _StandingsRow extends StatelessWidget {
     final hl = _hl;
     final bg = hl ? ColorTokens.surfaceHigh : Colors.transparent;
     final primary = hl ? ColorTokens.accent : ColorTokens.textPrimary;
-    final muted = hl
-        ? ColorTokens.accent.withValues(alpha: 0.7)
-        : ColorTokens.textMuted;
+    final muted = hl ? ColorTokens.accent.withValues(alpha: 0.7) : ColorTokens.textMuted;
 
     final nameStyle = TypographyTokens.body.copyWith(
       fontSize: 12,
@@ -417,42 +591,28 @@ class _StandingsRow extends StatelessWidget {
           width: 28,
           child: Text(
             team.pos.toString().padLeft(2, '0'),
-            style: numStyle.copyWith(
-                color: muted, fontWeight: FontWeight.w800),
+            style: numStyle.copyWith(color: muted, fontWeight: FontWeight.w800),
             textAlign: TextAlign.center,
           ),
         ),
         if (team.logoAsset.isNotEmpty)
-          SizedBox(
-              width: 18,
-              height: 18,
+          SizedBox(width: 18, height: 18,
               child: Image.asset(team.logoAsset, fit: BoxFit.contain))
         else
-          SizedBox(
-              width: 18,
-              height: 18,
+          SizedBox(width: 18, height: 18,
               child: Icon(Icons.shield_outlined, size: 14, color: muted)),
         const SizedBox(width: SpacingTokens.xxs),
         Expanded(
             child: Text(team.shortName.toUpperCase(),
-                style: nameStyle,
-                overflow: TextOverflow.ellipsis)),
-        SizedBox(
-            width: 26,
-            child: Text('${team.played}',
-                style: numStyle, textAlign: TextAlign.center)),
-        SizedBox(
-            width: 26,
-            child: Text('${team.wins}',
-                style: numStyle, textAlign: TextAlign.center)),
-        SizedBox(
-            width: 26,
-            child: Text('${team.draws}',
-                style: numStyle, textAlign: TextAlign.center)),
-        SizedBox(
-            width: 26,
-            child: Text('${team.losses}',
-                style: numStyle, textAlign: TextAlign.center)),
+                style: nameStyle, overflow: TextOverflow.ellipsis)),
+        SizedBox(width: 26,
+            child: Text('${team.played}', style: numStyle, textAlign: TextAlign.center)),
+        SizedBox(width: 26,
+            child: Text('${team.wins}', style: numStyle, textAlign: TextAlign.center)),
+        SizedBox(width: 26,
+            child: Text('${team.draws}', style: numStyle, textAlign: TextAlign.center)),
+        SizedBox(width: 26,
+            child: Text('${team.losses}', style: numStyle, textAlign: TextAlign.center)),
         SizedBox(
           width: 34,
           child: Text(
@@ -469,8 +629,7 @@ class _StandingsRow extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
         ),
-        SizedBox(
-            width: 34,
+        SizedBox(width: 34,
             child: Text('${team.points}',
                 style: numStyle.copyWith(fontWeight: FontWeight.w800),
                 textAlign: TextAlign.end)),
@@ -504,8 +663,7 @@ class _ContextCard extends StatelessWidget {
         const SizedBox(height: SpacingTokens.xs),
         Text(value,
             style: TypographyTokens.displayHero.copyWith(
-                fontSize: 48,
-                height: 0.9,
+                fontSize: 48, height: 0.9,
                 color: valueColor ?? ColorTokens.accent)),
         const SizedBox(height: SpacingTokens.sm),
         Text(note, style: TypographyTokens.body.copyWith(fontSize: 13)),
