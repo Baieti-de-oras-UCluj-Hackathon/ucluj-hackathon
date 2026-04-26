@@ -152,13 +152,21 @@ async def week_fixtures(
                 ucl_is_home = _ucluj_is_home(f["home_team"], f["away_team"])
 
                 expl = expl_svc.explain(feat, ui_prob, ucl_is_home=ucl_is_home)
-                presc = presc_svc.prescribe(feat, ucl_is_home=ucl_is_home)
+
+                is_completed = f.get("home_score") is not None and f.get("away_score") is not None
+                if not is_completed:
+                    presc = presc_svc.prescribe(feat, ucl_is_home=ucl_is_home)
+                    narrative = presc["text"] if presc["text"] else expl["narrative"]
+                    prescription = presc.get("structured")
+                else:
+                    narrative = ""
+                    prescription = None
 
                 item["home_win_probability"] = round(ui_prob, 4)
                 item["key_drivers"] = expl["top_drivers"][:3]
                 item["top_risks"] = expl["top_risks"][:2]
-                item["narrative"] = presc["text"] if presc["text"] else expl["narrative"]
-                item["prescription"] = presc.get("structured")
+                item["narrative"] = narrative
+                item["prescription"] = prescription
             else:
                 item["home_win_probability"] = None
                 item["key_drivers"] = []

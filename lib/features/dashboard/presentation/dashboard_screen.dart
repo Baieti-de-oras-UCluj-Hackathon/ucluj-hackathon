@@ -31,23 +31,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late final WeekRepository _repo;
   bool _loading = true;
   String? _error;
-  List<WeekFixture> _fixtures = [];
   int _weekOffset = 0;
 
+  // Local 5-week cache: offset → fixtures. Populated once on load, cleared on refresh.
+  static const List<int> _cachedOffsets = [-2, -1, 0, 1, 2];
+  final Map<int, List<WeekFixture>> _cache = {};
+
   static const String _myTeam = 'Universitatea Cluj';
+
+  List<WeekFixture> get _fixtures => _cache[_weekOffset] ?? [];
 
   @override
   void initState() {
     super.initState();
     _repo = WeekRepository(apiClient: widget.authState.api);
-    _load();
+    _loadAll();
   }
 
-  Future<void> _load() async {
+  /// Fetch all 5 weeks in parallel and populate the cache.
+  Future<void> _loadAll({bool forceRefresh = false}) async {
     setState(() { _loading = true; _error = null; });
+    if (forceRefresh) _cache.clear();
     try {
-      final data = await _repo.fetchWeekFixtures(weekOffset: _weekOffset);
-      if (mounted) setState(() { _fixtures = data; _loading = false; });
+      final results = await Future.wait(
+        _cachedOffsets.map((off) => _repo.fetchWeekFixtures(weekOffset: off)),
+      );
+      if (mounted) {
+        for (var i = 0; i < _cachedOffsets.length; i++) {
+          _cache[_cachedOffsets[i]] = results[i];
+        }
+        setState(() => _loading = false);
+      }
     } catch (e) {
       if (mounted) {
         if (e is ApiException && e.statusCode == 401) {
@@ -60,8 +74,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _changeWeek(int delta) {
-    setState(() => _weekOffset += delta);
-    _load();
+    final next = _weekOffset + delta;
+    if (!_cachedOffsets.contains(next)) return; // stay within cached range
+    setState(() => _weekOffset = next);
+    // No network call — data is already in _cache
   }
 
   void _openStats(WeekFixture f) {
@@ -82,8 +98,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: GestureDetector(
         onHorizontalDragEnd: (details) {
           if (details.primaryVelocity == null) return;
-          if (details.primaryVelocity! < -200) _changeWeek(1);   // swipe left → next week
-          if (details.primaryVelocity! > 200) _changeWeek(-1);  // swipe right → prev week
+          if (details.primaryVelocity! < -200) _changeWeek(1);
+          if (details.primaryVelocity! > 200) _changeWeek(-1);
         },
         child: _loading
             ? const Center(child: CircularProgressIndicator(color: ColorTokens.accent))
@@ -103,7 +119,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: SpacingTokens.sm),
           Text(_error!, style: TypographyTokens.body.copyWith(color: ColorTokens.textMuted), textAlign: TextAlign.center),
           const SizedBox(height: SpacingTokens.lg),
-          TextButton(onPressed: _load, child: Text('RETRY', style: TypographyTokens.sectionLabel.copyWith(color: ColorTokens.accent))),
+          TextButton(onPressed: _loadAll, child: Text('RETRY', style: TypographyTokens.sectionLabel.copyWith(color: ColorTokens.accent))),
         ],
       ),
     );
@@ -117,7 +133,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return RefreshIndicator(
       color: ColorTokens.accent,
       backgroundColor: ColorTokens.surfaceHigh,
-      onRefresh: _load,
+      onRefresh: () => _loadAll(forceRefresh: true),
       child: ListView(
         children: [
           // Week header
@@ -172,12 +188,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
           horizontal: SpacingTokens.sm, vertical: SpacingTokens.xs),
       child: Row(
         children: [
-          // Prev week arrow
+          // Prev week arrow — disabled at boundary
           IconButton(
-            icon: const Icon(Icons.chevron_left, color: ColorTokens.accent, size: 20),
+            icon: Icon(Icons.chevron_left,
+                color: _weekOffset > _cachedOffsets.first
+                    ? ColorTokens.accent
+                    : ColorTokens.textMuted,
+                size: 20),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            onPressed: () => _changeWeek(-1),
+            onPressed: _weekOffset > _cachedOffsets.first ? () => _changeWeek(-1) : null,
           ),
           const Icon(Icons.calendar_today, color: ColorTokens.accent, size: 14),
           const SizedBox(width: SpacingTokens.xs),
@@ -193,12 +213,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
-          // Next week arrow
+          // Next week arrow — disabled at boundary
           IconButton(
-            icon: const Icon(Icons.chevron_right, color: ColorTokens.accent, size: 20),
+            icon: Icon(Icons.chevron_right,
+                color: _weekOffset < _cachedOffsets.last
+                    ? ColorTokens.accent
+                    : ColorTokens.textMuted,
+                size: 20),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            onPressed: () => _changeWeek(1),
+            onPressed: _weekOffset < _cachedOffsets.last ? () => _changeWeek(1) : null,
           ),
         ],
       ),
