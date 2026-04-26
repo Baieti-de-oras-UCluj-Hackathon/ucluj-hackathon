@@ -23,7 +23,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   int _tabIndex = 0;
   bool _uploadingAvatar = false;
-  static const _tabs = ['OVERVIEW', 'ACTIVITY', 'ACCOUNT'];
+  static const _tabs = ['OVERVIEW', 'ACCOUNT'];
 
   AuthUser? get _user => widget.authState.user;
   String get _name => _user?.fullName ?? _user?.email ?? '—';
@@ -103,8 +103,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: SpacingTokens.xl),
                   if (_tabIndex == 0) _buildOverview(),
-                  if (_tabIndex == 1) _buildActivity(),
-                  if (_tabIndex == 2) _buildAccount(context),
+                  if (_tabIndex == 1) _buildAccount(context),
                 ],
               ),
             ),
@@ -128,30 +127,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _InfoRow(label: 'EMAIL', value: _email),
         _InfoRow(label: 'ROLE', value: _userRole),
         const _InfoRow(label: 'LANGUAGE', value: 'English'),
-        const _InfoRow(label: 'EXPORT FORMAT', value: 'PDF'),
-      ],
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // ACTIVITY
-  // ---------------------------------------------------------------------------
-
-  Widget _buildActivity() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('ACTIVITY', style: TypographyTokens.sectionLabel),
-        const SizedBox(height: SpacingTokens.md),
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: SpacingTokens.xxl),
-            child: Text(
-              'No activity recorded yet.',
-              style: TypographyTokens.body.copyWith(color: ColorTokens.textMuted),
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -171,26 +146,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _InfoRow(label: 'CLUB', value: _team),
         const _InfoRow(label: 'SECURITY', value: 'Standard JWT Access'),
         const _InfoRow(label: 'NOTIFICATIONS', value: 'Enabled'),
-
-        const SizedBox(height: SpacingTokens.xl),
-        const Divider(height: 1, color: ColorTokens.divider),
-        const SizedBox(height: SpacingTokens.xl),
-
-        Text('PREFERENCES', style: TypographyTokens.sectionLabel),
-        const SizedBox(height: SpacingTokens.md),
-        const _InfoRow(label: 'LANGUAGE', value: 'English'),
-        const _InfoRow(label: 'EXPORT FORMAT', value: 'PDF'),
-        const _InfoRow(label: 'DEFAULT VIEW', value: 'Dashboard'),
-
-        const SizedBox(height: SpacingTokens.xl),
-        const Divider(height: 1, color: ColorTokens.divider),
-        const SizedBox(height: SpacingTokens.xl),
-
-        Text('SECURITY', style: TypographyTokens.sectionLabel),
-        const SizedBox(height: SpacingTokens.md),
-        const _InfoRow(label: 'PASSWORD', value: '••••••••'),
-        const _InfoRow(label: 'TWO-FACTOR', value: 'Not enabled'),
-        const _InfoRow(label: 'LAST LOGIN', value: 'Today'),
 
         const SizedBox(height: SpacingTokens.xxl),
 
