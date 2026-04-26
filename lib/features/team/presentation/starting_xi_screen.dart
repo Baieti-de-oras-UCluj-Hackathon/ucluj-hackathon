@@ -111,7 +111,7 @@ class _StartingXiScreenState extends State<StartingXiScreen> {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      currentTab: AppTab.team,
+      currentTab: AppTab.dashboard,
       onTabSelected: widget.onTabSelected,
       onProfileTap: widget.onProfileTap,
       body: ListView(

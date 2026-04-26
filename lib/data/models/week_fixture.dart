@@ -20,6 +20,53 @@ class WeekFixtureDriver {
       );
 }
 
+class PrescriptionRec {
+  final String label;
+  final String unit;
+  final double current;
+  final double target;
+  final String direction; // "up" | "down"
+
+  PrescriptionRec({
+    required this.label,
+    required this.unit,
+    required this.current,
+    required this.target,
+    required this.direction,
+  });
+
+  factory PrescriptionRec.fromJson(Map<String, dynamic> j) => PrescriptionRec(
+        label:     j['label'] as String? ?? '',
+        unit:      j['unit'] as String? ?? '',
+        current:   (j['current'] as num?)?.toDouble() ?? 0,
+        target:    (j['target'] as num?)?.toDouble() ?? 0,
+        direction: j['direction'] as String? ?? 'up',
+      );
+}
+
+class Prescription {
+  final double baselineProb;
+  final double bestProb;
+  final double improvement;
+  final List<PrescriptionRec> recommendations;
+
+  Prescription({
+    required this.baselineProb,
+    required this.bestProb,
+    required this.improvement,
+    required this.recommendations,
+  });
+
+  factory Prescription.fromJson(Map<String, dynamic> j) => Prescription(
+        baselineProb: (j['baseline_prob'] as num?)?.toDouble() ?? 0,
+        bestProb:     (j['best_prob'] as num?)?.toDouble() ?? 0,
+        improvement:  (j['improvement'] as num?)?.toDouble() ?? 0,
+        recommendations: (j['recommendations'] as List<dynamic>?)
+                ?.map((e) => PrescriptionRec.fromJson(e as Map<String, dynamic>))
+                .toList() ?? [],
+      );
+}
+
 class WeekFixture {
   final String matchId;
   final String season;
@@ -33,6 +80,7 @@ class WeekFixture {
   final List<WeekFixtureDriver> keyDrivers;
   final List<WeekFixtureDriver> topRisks;
   final String narrative;
+  final Prescription? prescription;
 
   WeekFixture({
     required this.matchId,
@@ -47,6 +95,7 @@ class WeekFixture {
     required this.keyDrivers,
     required this.topRisks,
     required this.narrative,
+    this.prescription,
   });
 
   bool get isCompleted => homeScore != null && awayScore != null;
@@ -90,5 +139,8 @@ class WeekFixture {
                 .toList() ??
             [],
         narrative: j['narrative'] as String? ?? '',
+        prescription: j['prescription'] != null
+            ? Prescription.fromJson(j['prescription'] as Map<String, dynamic>)
+            : null,
       );
 }

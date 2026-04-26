@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/color_tokens.dart';
 import '../theme/typography_tokens.dart';
 
-enum AppTab { dashboard, standings, chat, analytics, team }
+enum AppTab { dashboard, standings, chat }
 
 class AppBottomNav extends StatelessWidget {
   const AppBottomNav({
@@ -42,16 +42,6 @@ class AppBottomNav extends StatelessWidget {
           icon: Icon(Icons.chat_bubble_outline),
           activeIcon: Icon(Icons.chat_bubble),
           label: 'CHAT',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.analytics_outlined),
-          activeIcon: Icon(Icons.analytics),
-          label: 'ANALYTICS',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.groups_outlined),
-          activeIcon: Icon(Icons.groups),
-          label: 'TEAM',
         ),
       ],
     );

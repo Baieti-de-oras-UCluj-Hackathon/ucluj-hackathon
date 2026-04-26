@@ -158,6 +158,7 @@ async def week_fixtures(
                 item["key_drivers"] = expl["top_drivers"][:3]
                 item["top_risks"] = expl["top_risks"][:2]
                 item["narrative"] = presc["text"] if presc["text"] else expl["narrative"]
+                item["prescription"] = presc.get("structured")
             else:
                 item["home_win_probability"] = None
                 item["key_drivers"] = []
@@ -166,11 +167,13 @@ async def week_fixtures(
                     "Predictive model is temporarily unavailable. "
                     "XI recommendation and tactical form metrics remain active."
                 )
+                item["prescription"] = None
         except Exception:
             item["home_win_probability"] = None
             item["key_drivers"] = []
             item["top_risks"] = []
             item["narrative"] = ""
+            item["prescription"] = None
         result.append(item)
 
     return result

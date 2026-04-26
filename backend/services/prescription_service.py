@@ -154,13 +154,73 @@ class PrescriptionService:
             return {
                 "text": _no_improvement_text(baseline_prob),
                 "improvement": round(improvement, 4),
+                "structured": None,
             }
 
         text = _build_prescription_text(
             baseline_prob, best_prob, improvement,
             baseline_vec, feat_idx, best_tactic, target_stats,
         )
-        return {"text": text, "improvement": round(improvement, 4)}
+        structured = _build_structured(
+            baseline_prob, best_prob, improvement,
+            baseline_vec, feat_idx, best_tactic, target_stats,
+        )
+        return {
+            "text": text,
+            "improvement": round(improvement, 4),
+            "structured": structured,
+        }
+
+
+_READABLE_LABELS = {
+    "Home_Poss_5":     "Posesie",
+    "Home_Shots_5":    "Suturi",
+    "Home_SoT_5":      "Suturi pe cadru",
+    "Home_Corners_5":  "Cornere",
+    "Home_Goals_5":    "Goluri marcate",
+    "Home_Conceded_5": "Goluri primite",
+    "Away_Poss_5":     "Posesie",
+    "Away_Shots_5":    "Suturi",
+    "Away_SoT_5":      "Suturi pe cadru",
+    "Away_Corners_5":  "Cornere",
+    "Away_Goals_5":    "Goluri marcate",
+    "Away_Conceded_5": "Goluri primite",
+}
+
+
+def _build_structured(
+    baseline_prob: float,
+    best_prob: float,
+    improvement: float,
+    baseline_vec: np.ndarray,
+    feat_idx: dict,
+    best_tactic: dict,
+    target_stats: list[str],
+) -> dict:
+    recs = []
+    for stat in target_stats:
+        current = round(float(baseline_vec[feat_idx[stat]]), 1)
+        target  = best_tactic[stat]
+        delta   = target - current
+        if abs(delta) < 0.05:
+            continue
+        if stat in _HIGHER_IS_BETTER and delta < 0:
+            continue
+        if stat in _LOWER_IS_BETTER and delta > 0:
+            continue
+        recs.append({
+            "label":     _READABLE_LABELS.get(stat, stat),
+            "unit":      "%" if stat in _UNITS else "",
+            "current":   current,
+            "target":    target,
+            "direction": "up" if delta > 0 else "down",
+        })
+    return {
+        "baseline_prob": round(baseline_prob, 4),
+        "best_prob":     round(best_prob, 4),
+        "improvement":   round(improvement, 4),
+        "recommendations": recs,
+    }
 
 
 def _no_improvement_text(prob: float) -> str:

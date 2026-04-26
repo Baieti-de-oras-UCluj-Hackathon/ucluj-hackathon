@@ -9,6 +9,155 @@ import '../../../data/models/match_preview.dart' show MatchPreviewResponse;
 import '../../../data/repositories/xi_repository.dart';
 import '../../team/presentation/recommended_xi_fifa_panel.dart';
 
+// ── Prescription blueprint widget ──────────────────────────────────────────
+
+class _PrescriptionBlueprint extends StatelessWidget {
+  const _PrescriptionBlueprint({required this.prescription});
+  final Prescription prescription;
+
+  @override
+  Widget build(BuildContext context) {
+    final uplift = prescription.improvement;
+    final bestPct = '${(prescription.bestProb * 100).round()}%';
+    final upliftPct = '+${(uplift * 100).round()}%';
+    final recs = prescription.recommendations;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: ColorTokens.surfaceLow,
+        border: Border.all(color: ColorTokens.accent.withValues(alpha: 0.4), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Header ──────────────────────────────────────────────────────
+          Container(
+            color: ColorTokens.accent.withValues(alpha: 0.12),
+            padding: const EdgeInsets.symmetric(
+                horizontal: SpacingTokens.md, vertical: SpacingTokens.sm),
+            child: Row(
+              children: [
+                const Icon(Icons.auto_awesome,
+                    color: ColorTokens.accent, size: 14),
+                const SizedBox(width: SpacingTokens.xs),
+                Text('PLAN TACTIC OPTIM',
+                    style: TypographyTokens.sectionLabel
+                        .copyWith(color: ColorTokens.accent, fontSize: 11)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: SpacingTokens.sm, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: ColorTokens.positive.withValues(alpha: 0.15),
+                    border: Border.all(
+                        color: ColorTokens.positive.withValues(alpha: 0.5)),
+                  ),
+                  child: Text(upliftPct,
+                      style: TypographyTokens.sectionLabel
+                          .copyWith(color: ColorTokens.positive, fontSize: 10)),
+                ),
+              ],
+            ),
+          ),
+
+          // ── Projected probability ────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+                SpacingTokens.md, SpacingTokens.md, SpacingTokens.md, SpacingTokens.xs),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(bestPct,
+                    style: TypographyTokens.displayHero
+                        .copyWith(color: ColorTokens.positive, fontSize: 40)),
+                const SizedBox(width: SpacingTokens.sm),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('PROBABILITATE',
+                        style: TypographyTokens.sectionLabel.copyWith(fontSize: 8)),
+                    Text('PROIECTATĂ',
+                        style: TypographyTokens.sectionLabel.copyWith(fontSize: 8)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: SpacingTokens.md),
+            child: Divider(height: 1, color: ColorTokens.divider),
+          ),
+
+          // ── Recommendation chips ─────────────────────────────────────────
+          if (recs.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.all(SpacingTokens.md),
+              child: Wrap(
+                spacing: SpacingTokens.sm,
+                runSpacing: SpacingTokens.sm,
+                children: recs.map(_buildRecChip).toList(),
+              ),
+            ),
+
+          // ── Footer ──────────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+                SpacingTokens.md, 0, SpacingTokens.md, SpacingTokens.sm),
+            child: Text(
+              'CatBoost · 800 simulări · date Liga 1 2020–2025',
+              style: TypographyTokens.sectionLabel
+                  .copyWith(color: ColorTokens.textMuted, fontSize: 8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecChip(PrescriptionRec rec) {
+    final isUp = rec.direction == 'up';
+    final color = isUp ? ColorTokens.positive : ColorTokens.accent;
+    final arrow = isUp ? '▲' : '▼';
+    final unitStr = rec.unit;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+          horizontal: SpacingTokens.sm, vertical: SpacingTokens.xs),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(rec.label.toUpperCase(),
+              style: TypographyTokens.sectionLabel
+                  .copyWith(color: ColorTokens.textMuted, fontSize: 8)),
+          const SizedBox(height: 2),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(arrow,
+                  style: TypographyTokens.sectionLabel
+                      .copyWith(color: color, fontSize: 10)),
+              const SizedBox(width: 3),
+              Text(
+                '${rec.current}$unitStr → ${rec.target}$unitStr',
+                style: TypographyTokens.body.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: ColorTokens.textPrimary),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class MatchStatsSheet extends StatefulWidget {
   const MatchStatsSheet({
     required this.fixture,
@@ -111,8 +260,13 @@ class _MatchStatsSheetState extends State<MatchStatsSheet> {
                   const SizedBox(height: SpacingTokens.md),
                 ],
 
-                // Narrative — only for upcoming matches
-                if (!f.isCompleted && f.narrative.isNotEmpty) ...[
+                // Prescription blueprint — only for upcoming matches
+                if (!f.isCompleted && f.prescription != null) ...[
+                  _sectionLabel('DIAGNOSTIC — PLAN TACTIC'),
+                  const SizedBox(height: SpacingTokens.sm),
+                  _PrescriptionBlueprint(prescription: f.prescription!),
+                  const SizedBox(height: SpacingTokens.xl),
+                ] else if (!f.isCompleted && f.narrative.isNotEmpty) ...[
                   _sectionLabel('DIAGNOSTIC'),
                   const SizedBox(height: SpacingTokens.sm),
                   Container(

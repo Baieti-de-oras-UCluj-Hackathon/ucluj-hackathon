@@ -21,7 +21,7 @@ class AnalyticsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      currentTab: AppTab.analytics,
+      currentTab: AppTab.dashboard,
       onTabSelected: onTabSelected,
       onProfileTap: onProfileTap,
       trailing: Container(

@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../core/state/auth_state.dart';
-import '../../features/analytics/presentation/analytics_screen.dart';
 import '../../features/chat/presentation/chat_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/standings/presentation/standings_screen.dart';
-import '../../features/team/presentation/team_screen.dart';
 import '../widgets/app_bottom_nav.dart';
 
 class AppShell extends StatefulWidget {
@@ -55,16 +53,6 @@ class _AppShellState extends State<AppShell> {
           onTabSelected: _onTabSelected,
           onProfileTap: _openProfile,
           authState: widget.authState,
-        );
-      case AppTab.analytics:
-        return AnalyticsScreen(
-          onTabSelected: _onTabSelected,
-          onProfileTap: _openProfile,
-        );
-      case AppTab.team:
-        return TeamScreen(
-          onTabSelected: _onTabSelected,
-          onProfileTap: _openProfile,
         );
     }
   }
